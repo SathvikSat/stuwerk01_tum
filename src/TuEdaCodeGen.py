@@ -1,0 +1,341 @@
+from utils.TuEdaCommon import *
+
+def read_file():
+    # Get the current working directory
+    current_dir = os.getcwd()
+    
+    # Construct the relative path to the file
+    relative_path = os.path.join(current_dir, '/home/ash-ketchum/Downloads/code_generation-main/input/P-ext-proposal.txt')
+    print( relative_path )
+    with open( relative_path,'r') as file:
+        text = file.read()
+    #print(text)
+    return text
+
+def devide_text_file(text_file):
+    pattern = '(?s)(?<=<<<).*?(?=<<<)'
+    devided_text_file = re.findall(pattern, text_file)
+    print(devided_text_file)
+    return devided_text_file
+
+def apply_selection(devided_text_file):
+    for part in devided_text_file:
+        #name
+        instruction_name = select_instruction_names(part)
+        if (instruction_name != "None"):
+            instruction_name_list.append(instruction_name)
+            #syntax    
+            instruction_syntax = select_instruction_syntax(part)
+            if (instruction_syntax == "None"):
+                instruction_syntax_list.append("None")
+            else:
+                instruction_syntax_list.append(instruction_syntax)
+            #number of operants
+            number_of_operants.append(instruction_syntax.count(','))
+            #description
+            instruction_description = select_instruction_description(part)
+            if (instruction_description == "None"):
+                instruction_description_list.append("None")
+            else:
+                instruction_description_list.append(instruction_description)
+            #operation
+            instruction_operation = select_instruction_operation(part)
+            if (instruction_operation == "None"):
+                instruction_operation_list.append("None")
+            else:
+                instruction_operation_list.append(instruction_operation)
+            #formate
+            instruction_format = edaSelInstFrmt(part)
+            if (instruction_format == "None"):
+                instruction_format_list.append("None")
+
+            else:
+                instruction_format_list.append(instruction_format)
+                instruction_encoding_list_local = []
+
+            #encoding 
+            instruction_encoding_list_local = edaSelInstEnc(instruction_format)
+            instruction_encoding_first_list.append(instruction_encoding_list_local[0])
+            instruction_encoding_second_list.append(instruction_encoding_list_local[1])
+            instruction_encoding_third_list.append(instruction_encoding_list_local[2])
+            instruction_encoding_fourth_list.append(instruction_encoding_list_local[3])
+            instruction_encoding_list_local.clear()
+        else:
+            pass
+
+def apply_commenting():
+    comment_text(instruction_format_list)
+    comment_text(instruction_operation_list)
+    comment_text(instruction_description_list)
+
+def comment_text(text_list):
+    for i in range (len(text_list)):
+        text_list[i] = "//" + text_list[i]
+        text_list[i] = text_list[i].replace("\n","\n//")
+    return text_list
+
+def select_instruction_syntax(text_file):
+        pattern = '(?<=\*Syntax:\*\n\n ).*(?=)'
+        instruction_syntax = re.findall(pattern, text_file)
+
+        if (len(instruction_syntax)==0):
+            instruction_syntax.append("None")
+        else:
+            pass
+        return instruction_syntax[0]
+
+
+def select_instruction_names(text_file_part):
+    pattern = '(?<=\*Syntax:\*\n\n )(\w+|\()'
+    instruction_names = re.findall(pattern, text_file_part)
+
+    if (len(instruction_names)==0):
+        instruction_names.append("None")
+    else:
+        pass
+    
+    return instruction_names[0]
+
+
+def select_instruction_description(text_file_part):
+    pattern = '(?s)(?<=\*Description:\*)(.*?)(?=\*Operations:\*)'
+    text_descriptions = re.findall(pattern, text_file_part)
+    if (len(text_descriptions)==0):
+        text_descriptions.append("None")
+    else:
+        pass
+
+    return text_descriptions[0]
+
+def select_instruction_operation(text_file_part):
+    pattern = '(?s)(?<=\*Operations:\*).*?(?=\*Exceptions:)'
+    text_operations = re.findall(pattern, text_file_part)
+
+    if (len(text_operations)==0):
+        text_operations.append("None")
+    else:
+        pass
+
+    return text_operations[0]
+
+def edaSelInstFrmt(text_file_part):
+    pattern = '(?s)(?<=\*Format:\*\n\n).*?(?=\|===\n\n\*Syn)'
+    text_format = re.findall(pattern, text_file_part)
+    if (len(text_format)==0):
+        text_format.append("None")
+    else:
+        pass
+
+    return text_format[0]
+
+def edaSelInstEnc(instruction_format):
+    pattern = '(?<= \+\n)(?:)\d+(?= |)|(?<= \|)(?:)\d+(?= |)'
+    instruction_encoding_list_local = re.findall(pattern, instruction_format)
+
+    looping_for_badding = len(instruction_encoding_list_local)
+    number_of_encodng_var = 4
+
+    while((number_of_encodng_var - looping_for_badding) > 0):
+        instruction_encoding_list_local.append('')
+        looping_for_badding = looping_for_badding + 1
+    return instruction_encoding_list_local
+
+def create_file():
+    with open('generated\RVP_try_v1.core_desc', 'w') as file:
+        file.write('import "RISCVBase.core_desc"\n')
+        file.write('\n')
+        file.write('InstructionSet RV32Zpn extends RV32I {\n')
+        file.write('    architectural_state {\n')
+        file.write('        unsigned<32> VXSAT_ADDR__ = 0x009;\n')
+        file.write('        unsigned<32>& VXSAT_CSR__ = CSR[VXSAT_ADDR__];\n')
+        file.write('    }\n')
+   
+        file.write('instructions {\n')
+        for i in range (len(instruction_name_list)):
+            file.write('//--------------\n')
+            file.write('// ||' + instruction_name_list[i] + '||\n')
+            file.write('//--------------\n')
+            file.write('//Instruction description:-\n')
+            file.write(instruction_description_list[i])
+            file.write('Instruction operation:-\n')
+            file.write(instruction_operation_list[i])
+            file.write('Instruction syntax:-   ')
+            file.write(instruction_syntax_list[i])
+            file.write('\n//Instruction formate:-\n')
+            file.write(instruction_format_list[i])
+            file.write('\n')
+            file.write('    ' + instruction_name_list[i])
+            file.write(' {\n')
+
+            if(number_of_operants[i]==1):
+                file.write('        encoding: 0b' + instruction_encoding_first_list[i]+ ' :: rs1[4:0] :: 0b' + instruction_encoding_second_list[i]+ ' :: rd[4:0] :: 0b' + instruction_encoding_third_list[i]+ ';' + '\n') # TODO generate a encoding #TODO what is a better name for instruction_encoding_first sec third  
+                file.write('        args_disass:"{name(rd)}, {name(rs1)}";' + '\n')
+                file.write('        behavior: {' + '\n')
+                file.write('            if(rd != 0) {' + '\n\n\n')
+                #TODO generate a rs1 , 2 , ... based on encoding
+            elif(number_of_operants[i]==2):
+                file.write('        encoding: 0b' + instruction_encoding_first_list[i]+ ' :: rs2[4:0] :: rs1[4:0] :: 0b' + instruction_encoding_second_list[i]+ ' :: rd[4:0] :: 0b' + instruction_encoding_third_list[i]+ ';' + '\n') # TODO generate a encoding #TODO what is a better name for instruction_encoding_first sec third  
+                file.write('        args_disass:"{name(rd)}, {name(rs2)}, {name(rs1)}";' + '\n')
+                file.write('        behavior: {' + '\n')
+                file.write('            if(rd != 0) {' + '\n\n\n')
+                #TODO generate a rs1 , 2 , ... based on encoding
+            elif(number_of_operants[i]==3):
+                file.write('        encoding: 0b' + instruction_encoding_first_list[i]+ ':: rs3[4:0] :: rs2[4:0] :: rs1[4:0] :: 0b' + instruction_encoding_second_list[i]+ ' :: rd[4:0] :: 0b' + instruction_encoding_third_list[i]+ ';' + '\n') # TODO generate a encoding #TODO what is a better name for instruction_encoding_first sec third  
+                file.write('        args_disass:"{name(rd)}, {name(rs3)}, {name(rs2)}, {name(rs1)}";' + '\n')
+                file.write('        behavior: {' + '\n')
+                file.write('            if(rd != 0) {' + '\n\n\n')
+                #TODO generate a rs1 , 2 , ... based on encoding
+            else:
+                pass
+
+            file.write('')
+            file.write('                X[rd] = rd_val;' + '\n')
+            file.write('            }' + '\n')
+            file.write('        }' + '\n')
+            file.write('    }\n')
+            file.write('    }\n\n\n\n')
+
+def create_file_table():
+    df = pd.DataFrame(list(zip(instruction_name_list, instruction_syntax_list,instruction_description_list, instruction_operation_list)),
+               columns =['Name', 'syntax', 'description', 'operations'])
+    writer = pd.ExcelWriter('generated/data.xlsx', engine='xlsxwriter')
+    df.to_excel(writer, sheet_name='welcome', index=False)
+    writer.close()
+
+if __name__ == "__main__":
+
+    instruction_name_list = [] 
+    instruction_syntax_list = []
+    instruction_description_list = []
+    instruction_operation_list = []
+    instruction_format_list = []
+
+    instruction_encoding_list_length = []
+    instruction_encoding_first_list = []
+    instruction_encoding_second_list = []
+    instruction_encoding_third_list = []
+    instruction_encoding_fourth_list = []
+    number_of_operants = []
+
+    text_file = read_file()
+    text_file_devided = devide_text_file(text_file)
+    lstofDict = []
+    
+    #iterate over all the instructions in the document
+    for inst in text_file_devided:
+
+        #extract all the content between Format and Syntax
+        pattern = r"Format:(.*?)Syntax:"
+
+        match = re.search(pattern, inst, re.DOTALL)
+        if match:
+
+            #strip white spaces
+            res = match.group(1).strip() 
+            
+            colptrn = 'cols="'
+
+            #find the number of occurance of "cols=" pattern
+            colCnt = len(re.findall(colptrn, res))
+            
+            #split the content at "cols=" pattern
+            content = res.split("cols=")
+
+            #extract only the useful content with "|===" pattern into contentToParse lst
+            contentToParse = list(filter(lambda x: '|===' in x, content))
+
+            #iterate thro all the useful content in contentToParse
+            #numColsPtrn = r'\[cols="(\d+)\*\^\.\^"\]'
+            
+            #for match in re.finditer(numColsPtrn, res):
+             #   startIdx = match.start()
+             #   endIdx = match.end()
+                
+            #numColMatch = re.findall( numColsPtrn, res )
+            #if numColMatch:
+                #numCols = int(numColMatch.group(1))
+    
+            #cleaning of the content
+            singlLinRes = list( map( lambda x: x.replace('\n', ''), contentToParse ) )
+
+            for op in singlLinRes:
+                #try:
+                    #count for "l|" pattern
+                    cntPipe = op.count('l|') 
+                    if(0 == cntPipe ): #TODO: Handle this case eg. line 9432
+                        print("pattern not found!")
+                        continue
+                    cntPipe = op.count('l|')
+                    start = op.index('l|')
+                    op = op[start:]
+                    lstIdx = op.rindex("|")
+                    op = op[:lstIdx+1]
+                    op = op.replace("l|", "|")
+                    # singlLinRes = singlLinRes.split('|')
+                    valLst =  op.split('|')[:cntPipe+1]
+                    keyLst =  op.split('|')[cntPipe+1:]
+                    valLst = list(filter(lambda x: x != '', valLst))
+                    keyLst = list(filter(lambda x: x != '', keyLst))
+                    valIdxPair = dict(zip(keyLst, valLst)) 
+                    valIdxDict = {}
+                    for k, v in valIdxPair.items():
+                        values = v.strip().split()
+                        if len(values) == 2:
+                            start, end = map(int, values) 
+                            if end > start:
+                                newVal = str(end - start)
+                            else:
+                                newVal = str(start - end)
+                        else:
+                            #handle this scenario completely
+                            start = end = int(values[0])
+                        valIdxDict[k] = newVal
+                    lstofDict.append(valIdxDict)                    
+            
+                #except Exception as e:
+                #    #TODO: handle errors or exceptions
+                #    print(f"Error occured:{e}")
+                #    print(lstofDict[-1])
+                #    print("Len is ", len(lstofDict))
+                #    if len(lstofDict) == 284:
+                #        pdb.set_trace()
+                #    continue
+                ## if len(lstofDict) == 283:
+                ##     print(111)
+                #    #pdb.set_trace()
+                
+    
+    print("To Check if its done")
+    print(lstofDict[-1])
+    print("Len is ", len(lstofDict))
+    encodeLst = []
+    for myDict in lstofDict:
+        encoding = " "
+        for i, (k,v) in enumerate(myDict.items()):
+            if i >= 1:
+                encoding += '::'
+            if '+' in k:
+                encoding += '0b'
+                encoding += k.split("+")[1] 
+            elif 'R' in k:
+                encoding += k.lower()
+                encoding += "["+ str(int(v)) + ":0]"
+        encodeLst.append(encoding)
+    print("test")
+
+'''
+for k, v in lstofDict[325].items():
+    encoding += "::"
+    if '+' in k:
+      encoding += '0b'
+      encoding += k.split("+")[1]
+    #else if 'R' in k:
+      #encoding += 
+'''
+'''
+    apply_selection(text_file_devided)
+    apply_commenting()
+
+    create_file()
+    create_file_table()
+    '''
