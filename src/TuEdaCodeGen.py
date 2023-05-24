@@ -195,6 +195,41 @@ def create_file():
             file.write('    }\n')
             file.write('    }\n\n\n\n')
 
+
+#strip contents from the string before ith occurance of '|'
+#using '|' for count and strip reference  
+def strip_str_contents( myLst, count ):
+    for i, string_ in enumerate(myLst):
+        parts = string_.split('|')
+        if count <= len(parts):
+            index = sum(len(part) + 1 for part in parts[:count])
+            stripped_string = string_[index-1:]
+            myLst[i] = stripped_string
+            #myStripLst[i] = string_[:index-1]
+    return myLst
+
+
+def split_list(lst, count):
+    new_lst = []
+    split_count = 0
+    for item in lst:
+        split_items = item.split('|')
+        new_lst.extend( split_items[1:count] )
+        split_count += split_items.count('|')
+        if split_count >= count:
+            break
+    return new_lst
+
+
+#dict updation with list of values, initially 'values' being set to None
+def update_dict(lst, dict_):
+    for k, v in zip(dict_.keys(), lst):
+        if dict_[k] is None:
+            dict_[k] = [v.strip()]
+        else:
+            dict_[k].append(v.strip()) 
+    return dict_
+
 def create_file_table():
     df = pd.DataFrame(list(zip(instruction_name_list, instruction_syntax_list,instruction_description_list, instruction_operation_list)),
                columns =['Name', 'syntax', 'description', 'operations'])
@@ -241,11 +276,24 @@ if __name__ == "__main__":
             #split the content at "cols=" pattern
             content = res.split("cols=")
 
+            #for each cols get number of cols info
+            #numColsPtrn = r'\[cols="(\d+)\*\^\.\^"\]'
+            #numColMatches = re.findall( numColsPtrn, content)
+            #if numColMatches:
+                #numOfCols = [int(numColMatches)]
+
             #extract only the useful content with "|===" pattern into contentToParse lst
             contentToParse = list(filter(lambda x: '|===' in x, content))
 
+            #extract number of cols info for each col
+            numColInfo = []
+            for string_ in contentToParse:
+                use = re.search(r'\d+', string_)
+                if use:
+                    numCol = int(use.group())
+                    numColInfo.append(numCol)
+
             #iterate thro all the useful content in contentToParse
-            #numColsPtrn = r'\[cols="(\d+)\*\^\.\^"\]'
             
             #for match in re.finditer(numColsPtrn, res):
              #   startIdx = match.start()
@@ -257,14 +305,66 @@ if __name__ == "__main__":
     
             #cleaning of the content
             singlLinRes = list( map( lambda x: x.replace('\n', ''), contentToParse ) )
-
+            idx = 0
             for op in singlLinRes:
-                #try:
+                idx += 1
+                try:
                     #count for "l|" pattern
                     cntPipe = op.count('l|') 
                     if(0 == cntPipe ): #TODO: Handle this case eg. line 9432
-                        print("pattern not found!")
+                        print("pattern not found!\n", inst)
+                        pattern = r'\|===(.*?)\|==='
+                        matches = re.findall(pattern, op, re.DOTALL)
+                        
+                        #eg: caseCol = ['|*[.underline]#xy#* |*[.underline]#code[4:0]#*|10 |01100|20 |01101|30 |01110|31 |01111|32 |10111'] 
+                        caseCol = [match.strip() for match in matches]
+                        
+                        #PipeCnt = [12, 6]
+                        PipeCnt = [member.count('|') for member in caseCol ]
+
+                        for info in caseCol:
+                            count = 0
+                            result = ''
+                            i = 0
+                            while count < (numColInfo[idx - 1] +1) and i < len(info):
+                                if info[i] == '|':
+
+                                    ''' 
+                                    count has the number of unique cols+1 value
+                                    eg. for |*[.underline]#xy#* |*[.underline]#zz#* |RV32 |RV64
+                                    count is 5 
+                                    '''
+                                    count += 1
+                                result += info[i]
+                                i += 1
+
+                        #result = '|*[.underline]#xy#* |*[.underline]#code[4:0]#*|'
+                        result_split = result.split('|')
+                        result_split = list(filter(None, result_split))
+
+                        #eg. {'*[.underline]#xy#* ': None, '*[.underline]#code[4:0]#*': None}
+                        res_dict = {}
+                        keys_of_res_dict = []
+                        for key in result_split:
+                            res_dict[key] = None
+
+                        while len(caseCol): 
+                            #use this to strip off extracted values from string
+                            caseCol = strip_str_contents( caseCol, count)
+                        
+                            #values of dict being list of and use it as encoding info for the previous column 
+                            #now reuse caseCol to form values of the dict 
+                        
+                            #eg. resLst = ['BB ', '00 ', '         ', '&#10003;']
+                            resLst = split_list( caseCol, count)
+
+                            #update res_dict values with the info in resLst
+                            #eg. res_dict = {'*[.underline]#xy#* ': ['BB'], '*[.underline]#zz#* ': ['00'], 'RV32 ': [''], 'RV64': ['&#10003;']}
+                            res_dict = update_dict( resLst, res_dict )
+                        print(res_dict)
+                        count = 1
                         continue
+                    
                     cntPipe = op.count('l|')
                     start = op.index('l|')
                     op = op[start:]
@@ -292,17 +392,17 @@ if __name__ == "__main__":
                         valIdxDict[k] = newVal
                     lstofDict.append(valIdxDict)                    
             
-                #except Exception as e:
-                #    #TODO: handle errors or exceptions
-                #    print(f"Error occured:{e}")
-                #    print(lstofDict[-1])
-                #    print("Len is ", len(lstofDict))
-                #    if len(lstofDict) == 284:
-                #        pdb.set_trace()
-                #    continue
-                ## if len(lstofDict) == 283:
-                ##     print(111)
-                #    #pdb.set_trace()
+                except Exception as e:
+                    #TODO: handle errors or exceptions
+                    print(f"Error occured:{e}")
+                    print(lstofDict[-1])
+                    print("Len is ", len(lstofDict))
+                    if len(lstofDict) == 284:
+                        pdb.set_trace()
+                    continue
+                # if len(lstofDict) == 283:
+                #     print(111)
+                    #pdb.set_trace()
                 
     
     print("To Check if its done")
