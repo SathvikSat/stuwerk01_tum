@@ -80,22 +80,30 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
 
     #continue encoding after all encoding contents are extracted    
     for myDict in lstofEncoding:
-        encoding = " "
-        args_disass = " "
+        encoding = ""
+        args_disass = ""
         for i, (k,v) in enumerate(myDict.items()):
             cleaned_k = k.strip()
             if i >= 1:
                 encoding += '::'
                 #args_disass += ','
             if '+' in k:
-                encoding += '0b'
+                encoding +=  str( int(v)+1 ) + '\'b'
                 encoding += cleaned_k.split("+")[1] 
             elif 'R' in cleaned_k:
                 encoding += cleaned_k.lower()
                 encoding += "["+ str(int(v)) + ":0]"
                 args_disass += "{name(" + cleaned_k.lower() + ")},"
+            elif 'imm' in cleaned_k:
+                #TODO immediate operand
+                encoding += cleaned_k.lower()
+                encoding += "["+ str(int(v)) + ":0]"
+                
+                #ASK: Is this needed for imm as well?
+                args_disass += "{name(" + cleaned_k.lower() + ")},"
+                #pass
             elif all(char in '01' for char in cleaned_k ):
-                encoding += '0b'
+                encoding += str( int(v)+1 ) + '\'b'
                 encoding += cleaned_k
         inst_encodeLst.append(encoding)
         lstofArgsDisass.append(args_disass)
