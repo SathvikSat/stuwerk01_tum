@@ -18,9 +18,10 @@ def devide_text_file(text_file):
     #print(devided_text_file)
     return devided_text_file
 
-def apply_selection(devided_text_file, inst_encodeLst ):
+def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
     lstofDict_ = []
     lstofEncoding = []
+    lstofArgsDisass = []
     for part in devided_text_file:        
         #name
         instruction_name = select_instruction_names(part)
@@ -80,20 +81,27 @@ def apply_selection(devided_text_file, inst_encodeLst ):
     #continue encoding after all encoding contents are extracted    
     for myDict in lstofEncoding:
         encoding = " "
+        args_disass = " "
         for i, (k,v) in enumerate(myDict.items()):
             cleaned_k = k.strip()
             if i >= 1:
                 encoding += '::'
+                #args_disass += ','
             if '+' in k:
                 encoding += '0b'
                 encoding += cleaned_k.split("+")[1] 
             elif 'R' in cleaned_k:
                 encoding += cleaned_k.lower()
                 encoding += "["+ str(int(v)) + ":0]"
+                args_disass += "{name(" + cleaned_k.lower() + ")},"
             elif all(char in '01' for char in cleaned_k ):
                 encoding += '0b'
                 encoding += cleaned_k
         inst_encodeLst.append(encoding)
+        lstofArgsDisass.append(args_disass)
+
+    inst_argsDisass = [s[:-1] if s.endswith(',') else s for s in lstofArgsDisass] 
+    
     print("Done1") 
 def apply_commenting():
     comment_text(instruction_format_list)
@@ -153,13 +161,15 @@ def select_instruction_operation(text_file_part):
 def edaSelInstFrmt(text_file_part):
     pattern = '(?s)(?<=\*Format:\*\n\n).*?(?=\|===\n\n\*Syn)'
     text_format = re.findall(pattern, text_file_part)
-    if (len(text_format)==0):
+    if ( len(text_format) == 0 ):
         text_format.append("None")
     else:
         pass
 
     return text_format[0]
 
+
+#TODO: Need to modify this function
 def edaSelInstEnc(instruction_format):
     pattern = '(?<= \+\n)(?:)\d+(?= |)|(?<= \|)(?:)\d+(?= |)'
     instruction_encoding_list_local = re.findall(pattern, instruction_format)
@@ -474,7 +484,7 @@ if __name__ == "__main__":
     inst_encodeLst = []
     inst_argsDisass = []
 
-    apply_selection(text_file_devided, inst_encodeLst)
+    apply_selection(text_file_devided, inst_encodeLst, inst_argsDisass)
     apply_commenting()
     print("Calling create_file")
     create_file()
@@ -482,6 +492,7 @@ if __name__ == "__main__":
 
 #TODO: special case encoding handling pending.
 #TODO: assembly name() using regular expr re.sub() , 7b0`000 
+#TODO: Printing into a file, imm operation handling
 '''
 for k, v in lstofEncoding[325].items():
     encoding += "::"
