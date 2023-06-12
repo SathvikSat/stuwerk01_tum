@@ -18,8 +18,10 @@ def devide_text_file(text_file):
     #print(devided_text_file)
     return devided_text_file
 
-def apply_selection(devided_text_file):
-    for part in devided_text_file:
+def apply_selection(devided_text_file, inst_encodeLst ):
+    lstofDict_ = []
+    lstofEncoding = []
+    for part in devided_text_file:        
         #name
         instruction_name = select_instruction_names(part)
         if (instruction_name != "None"):
@@ -53,16 +55,46 @@ def apply_selection(devided_text_file):
                 instruction_format_list.append(instruction_format)
                 instruction_encoding_list_local = []
 
-            #encoding 
+                #Encoding
+                #for every iter get a new encoding/encoding lst of dicts
+                inst = part
+                TuEdaEncodeRiscToCoreDsl(inst, lstofEncoding )
+                #lstofDict_.append(lstofEncoding)
+                #print("To Check if its done")
+                #print(lstofEncoding[-1])
+                #print("Len is ", len(lstofEncoding))
+            
+                #print("test")
+                # Encoding Ends # 
+            '''
             instruction_encoding_list_local = edaSelInstEnc(instruction_format)
             instruction_encoding_first_list.append(instruction_encoding_list_local[0])
             instruction_encoding_second_list.append(instruction_encoding_list_local[1])
             instruction_encoding_third_list.append(instruction_encoding_list_local[2])
             instruction_encoding_fourth_list.append(instruction_encoding_list_local[3])
             instruction_encoding_list_local.clear()
+            '''
         else:
             pass
-        
+
+    #continue encoding after all encoding contents are extracted    
+    for myDict in lstofEncoding:
+        encoding = " "
+        for i, (k,v) in enumerate(myDict.items()):
+            cleaned_k = k.strip()
+            if i >= 1:
+                encoding += '::'
+            if '+' in k:
+                encoding += '0b'
+                encoding += cleaned_k.split("+")[1] 
+            elif 'R' in cleaned_k:
+                encoding += cleaned_k.lower()
+                encoding += "["+ str(int(v)) + ":0]"
+            elif all(char in '01' for char in cleaned_k ):
+                encoding += '0b'
+                encoding += cleaned_k
+        inst_encodeLst.append(encoding)
+    print("Done1") 
 def apply_commenting():
     comment_text(instruction_format_list)
     comment_text(instruction_operation_list)
@@ -231,36 +263,8 @@ def update_dict(lst, dict_):
             dict_[k].append(v.strip()) 
     return dict_
 
-def create_file_table():
-    df = pd.DataFrame(list(zip(instruction_name_list, instruction_syntax_list,instruction_description_list, instruction_operation_list)),
-               columns =['Name', 'syntax', 'description', 'operations'])
-    writer = pd.ExcelWriter('generated/data.xlsx', engine='xlsxwriter')
-    df.to_excel(writer, sheet_name='welcome', index=False)
-    writer.close()
-
-if __name__ == "__main__":
-
-    instruction_name_list = [] 
-    instruction_syntax_list = []
-    instruction_description_list = []
-    instruction_operation_list = []
-    instruction_format_list = []
-
-    instruction_encoding_list_length = []
-    instruction_encoding_first_list = []
-    instruction_encoding_second_list = []
-    instruction_encoding_third_list = []
-    instruction_encoding_fourth_list = []
-    number_of_operants = []
-
-    text_file = read_file()
-    text_file_devided = devide_text_file(text_file)
-    lstofDict = []
-    
-    #iterate over all the instructions in the document
-    for inst in text_file_devided:
-
-        #extract all the content between Format and Syntax
+def TuEdaEncodeRiscToCoreDsl(inst, lstofEncoding ):
+     #extract all the content between Format and Syntax
         pattern = r"Format:(.*?)Syntax:"
 
         match = re.search(pattern, inst, re.DOTALL)
@@ -386,8 +390,9 @@ if __name__ == "__main__":
                         splCase = []
                         
                         #eg. {'PK**[.underline]#xy#...#zz#* 111 ': '6', 'Rs2 ': '4', 'Rs1 ': '4', '001 ': '2', 'Rd': '4', 'OP-P +1110111': '6'}
-                        splCase.append(lstofDict[-1])
+                        splCase.append(lstofEncoding[-1])
 
+                        
                         continue
                     
                     #if cntPipe exists
@@ -420,44 +425,56 @@ if __name__ == "__main__":
                             #handle this scenario completely
                             start = end = int(values[0])
                         valIdxDict[k] = newVal
-                    lstofDict.append(valIdxDict)                    
-            
+                    lstofEncoding.append(valIdxDict)                    
+                    
                 except Exception as e:
                     #TODO: handle errors or exceptions
                     print(f"Error occured:{e}")
-                    print(lstofDict[-1])
-                    print("Len is ", len(lstofDict))
-                    if len(lstofDict) == 284:
+                    print(lstofEncoding[-1])
+                    print("Len is ", len(lstofEncoding))
+                    if len(lstofEncoding) == 284:
                         pdb.set_trace()
+                    
+                    
                     continue
-                # if len(lstofDict) == 283:
+                # if len(lstofEncoding) == 283:
                 #     print(111)
                     #pdb.set_trace()
-                
-    
-    print("To Check if its done")
-    #print(lstofDict[-1])
-    #print("Len is ", len(lstofDict))
-    encodeLst = []
-    for myDict in lstofDict:
-        encoding = " "
-        for i, (k,v) in enumerate(myDict.items()):
-            cleaned_k = k.strip()
-            if i >= 1:
-                encoding += '::'
-            if '+' in k:
-                encoding += '0b'
-                encoding += cleaned_k.split("+")[1] 
-            elif 'R' in cleaned_k:
-                encoding += cleaned_k.lower()
-                encoding += "["+ str(int(v)) + ":0]"
-            elif all(char in '01' for char in cleaned_k ):
-                encoding += '0b'
-                encoding += cleaned_k
-        encodeLst.append(encoding)
-    print("test")
+            return lstofEncoding
 
-    apply_selection(text_file_devided)
+def create_file_table():
+    df = pd.DataFrame(list(zip(instruction_name_list, instruction_syntax_list,instruction_description_list, instruction_operation_list)),
+               columns =['Name', 'syntax', 'description', 'operations'])
+    writer = pd.ExcelWriter('generated/data.xlsx', engine='xlsxwriter')
+    df.to_excel(writer, sheet_name='welcome', index=False)
+    writer.close()
+
+if __name__ == "__main__":
+
+    instruction_name_list = [] 
+    instruction_syntax_list = []
+    instruction_description_list = []
+    instruction_operation_list = []
+    instruction_format_list = []
+
+    instruction_encoding_list_length = []
+    instruction_encoding_first_list = []
+    instruction_encoding_second_list = []
+    instruction_encoding_third_list = []
+    instruction_encoding_fourth_list = []
+    number_of_operants = []
+
+    text_file = read_file()
+    text_file_devided = devide_text_file(text_file)
+    #lstofEncoding = []
+    
+    #iterate over all the instructions in the document
+    #for inst in text_file_devided:
+    #
+    inst_encodeLst = []
+    inst_argsDisass = []
+
+    apply_selection(text_file_devided, inst_encodeLst)
     apply_commenting()
     print("Calling create_file")
     create_file()
@@ -466,7 +483,7 @@ if __name__ == "__main__":
 #TODO: special case encoding handling pending.
 #TODO: assembly name() using regular expr re.sub() , 7b0`000 
 '''
-for k, v in lstofDict[325].items():
+for k, v in lstofEncoding[325].items():
     encoding += "::"
     if '+' in k:
       encoding += '0b'
@@ -475,7 +492,7 @@ for k, v in lstofDict[325].items():
       #encoding += 
 '''
 '''
-    apply_selection(text_file_devided)
+    apply_selection(text_file_devided, inst_encodeLst)
     apply_commenting()
 
     create_file()
