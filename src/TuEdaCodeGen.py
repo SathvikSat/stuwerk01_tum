@@ -15,7 +15,7 @@ def read_file():
 def devide_text_file(text_file):
     pattern = '(?s)(?<=<<<).*?(?=<<<)'
     devided_text_file = re.findall(pattern, text_file)
-    print(devided_text_file)
+    #print(devided_text_file)
     return devided_text_file
 
 def apply_selection(devided_text_file):
@@ -62,7 +62,7 @@ def apply_selection(devided_text_file):
             instruction_encoding_list_local.clear()
         else:
             pass
-
+        
 def apply_commenting():
     comment_text(instruction_format_list)
     comment_text(instruction_operation_list)
@@ -141,7 +141,7 @@ def edaSelInstEnc(instruction_format):
     return instruction_encoding_list_local
 
 def create_file():
-    with open('generated\RVP_try_v1.core_desc', 'w') as file:
+    with open('generated/RVP_try_v1.core_desc', 'w') as file:
         file.write('import "RISCVBase.core_desc"\n')
         file.write('\n')
         file.write('InstructionSet RV32Zpn extends RV32I {\n')
@@ -166,6 +166,7 @@ def create_file():
             file.write('\n')
             file.write('    ' + instruction_name_list[i])
             file.write(' {\n')
+            
 
             if(number_of_operants[i]==1):
                 file.write('        encoding: 0b' + instruction_encoding_first_list[i]+ ' :: rs1[4:0] :: 0b' + instruction_encoding_second_list[i]+ ' :: rd[4:0] :: 0b' + instruction_encoding_third_list[i]+ ';' + '\n') # TODO generate a encoding #TODO what is a better name for instruction_encoding_first sec third  
@@ -348,7 +349,19 @@ if __name__ == "__main__":
                         for key in result_split:
                             res_dict[key] = None
 
-                        while len(caseCol): 
+                        '''
+                        TODO: PACK/PACKU, RV32, 64, PK16, 32
+                        what exactly will be the generalised encodoing format
+                        encoding:
+                            Is it: 
+
+                                   funct7:            funct3:
+                            PKBB16 0000--111  rs2 rs1     001 rd 
+                            PKBT16 0001--111
+                            PKTB16 0011--111
+                            PKTT16 0010--111
+                        '''
+                        while ( caseCol != [''] ): 
                             #use this to strip off extracted values from string
                             caseCol = strip_str_contents( caseCol, count)
                         
@@ -361,22 +374,39 @@ if __name__ == "__main__":
                             #update res_dict values with the info in resLst
                             #eg. res_dict = {'*[.underline]#xy#* ': ['BB'], '*[.underline]#zz#* ': ['00'], 'RV32 ': [''], 'RV64': ['&#10003;']}
                             res_dict = update_dict( resLst, res_dict )
-                        print(res_dict)
-                        count = 1
+                        
+                        #print(res_dict)
+                        #TODO: Use this result to prev list for encoding purpose
+                        
+
+                        #SUNPKD8**[.underline]#xy#** + *code[4:0]*
+                        #SUNPKD810
+
+                        #special case handling
+                        splCase = []
+                        
+                        #eg. {'PK**[.underline]#xy#...#zz#* 111 ': '6', 'Rs2 ': '4', 'Rs1 ': '4', '001 ': '2', 'Rd': '4', 'OP-P +1110111': '6'}
+                        splCase.append(lstofDict[-1])
+
                         continue
                     
+                    #if cntPipe exists
                     cntPipe = op.count('l|')
                     start = op.index('l|')
+                    
                     op = op[start:]
                     lstIdx = op.rindex("|")
+                    
                     op = op[:lstIdx+1]
                     op = op.replace("l|", "|")
+                    
                     # singlLinRes = singlLinRes.split('|')
                     valLst =  op.split('|')[:cntPipe+1]
                     keyLst =  op.split('|')[cntPipe+1:]
                     valLst = list(filter(lambda x: x != '', valLst))
                     keyLst = list(filter(lambda x: x != '', keyLst))
                     valIdxPair = dict(zip(keyLst, valLst)) 
+                    
                     valIdxDict = {}
                     for k, v in valIdxPair.items():
                         values = v.strip().split()
@@ -406,23 +436,35 @@ if __name__ == "__main__":
                 
     
     print("To Check if its done")
-    print(lstofDict[-1])
-    print("Len is ", len(lstofDict))
+    #print(lstofDict[-1])
+    #print("Len is ", len(lstofDict))
     encodeLst = []
     for myDict in lstofDict:
         encoding = " "
         for i, (k,v) in enumerate(myDict.items()):
+            cleaned_k = k.strip()
             if i >= 1:
                 encoding += '::'
             if '+' in k:
                 encoding += '0b'
-                encoding += k.split("+")[1] 
-            elif 'R' in k:
-                encoding += k.lower()
+                encoding += cleaned_k.split("+")[1] 
+            elif 'R' in cleaned_k:
+                encoding += cleaned_k.lower()
                 encoding += "["+ str(int(v)) + ":0]"
+            elif all(char in '01' for char in cleaned_k ):
+                encoding += '0b'
+                encoding += cleaned_k
         encodeLst.append(encoding)
     print("test")
 
+    apply_selection(text_file_devided)
+    apply_commenting()
+    print("Calling create_file")
+    create_file()
+    create_file_table()
+
+#TODO: special case encoding handling pending.
+#TODO: assembly name() using regular expr re.sub() , 7b0`000 
 '''
 for k, v in lstofDict[325].items():
     encoding += "::"
