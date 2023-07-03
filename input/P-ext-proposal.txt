@@ -112,7 +112,7 @@ power and higher performance.
 <<<
 == Shorthand Definitions and Terminology
 
-=== Shorthand Definitions
+===                             
 
 * r.H == rH1: r[31:16], r.L == r.H0: r[15:0]
 * r.B3: r[31:24], r.B2: r[23:16], r.B1: r[15:8], r.B0: r[7:0]

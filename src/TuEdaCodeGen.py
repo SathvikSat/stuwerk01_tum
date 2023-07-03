@@ -22,6 +22,10 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
     lstofDict_ = []
     lstofEncoding = []
     lstofArgsDisass = []
+
+    lstOfBehaviorDict = []
+    currBehavDict = {}
+
     for part in devided_text_file:        
         #name
         instruction_name = select_instruction_names(part)
@@ -47,6 +51,12 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
                 instruction_operation_list.append("None")
             else:
                 instruction_operation_list.append(instruction_operation)
+                inst = part
+
+                TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
+                                            currBehavDict )
+                #temp
+                #continue
             #formate
             instruction_format = edaSelInstFrmt(part)
             if (instruction_format == "None"):
@@ -100,7 +110,7 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
                 encoding += "["+ str(int(v)) + ":0]"
                 
                 #ASK: Is this needed for imm as well?
-                args_disass += "{name(" + cleaned_k.lower() + ")},"
+                #args_disass += "{name(" + cleaned_k.lower() + ")},"
                 #pass
             elif all(char in '01' for char in cleaned_k ):
                 encoding += str( int(v)+1 ) + '\'b'
@@ -281,8 +291,144 @@ def update_dict(lst, dict_):
             dict_[k].append(v.strip()) 
     return dict_
 
+
+#To convert RSIC-V instruction behaviours into coreDSL format
+def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
+                                currBehavDict ):
+    #extract all the content between Operations and Exceptions
+    pattern = r"Operations:(.*?)Exceptions:"
+    match = re.search(pattern, inst, re.DOTALL)
+    
+    # if certain operation exists 
+    if match:
+        #strip white spaces
+        res = match.group(1).strip() 
+        print(res)
+        content = res.split("\n")
+
+        if '' in content:
+            start_index = content.index('') + 1
+            end_index = 0
+            for i in range(start_index, len(content)):
+                if content[i] == '' or content[i] == '  ':
+                    end_index = i
+                    break
+            if end_index > start_index:  
+                # for loop patterns
+                #TODO:remove spaces for pattern
+                forPattern1 = r'\s*for\s*\(\s*i\s*=\s*(\d+)\s*to\s*(\d+)\s*\)'
+                forPattern2 = r'\s*for\s*(RV\d+)[\s,]*:\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)[\s,]*'  
+                
+                #clean content to be unrolled
+                cleanContent = content[start_index:end_index]
+                count = 0
+                
+                #for code in cleanContent:
+                    
+                currBehavDict = {i: code for i, code in enumerate(cleanContent)}
+                #lstOfBehaviorDict.append(currBehavDict)
+                unrollLstofDict = []
+                #unrollDict = {}
+                #for loop pattern
+                #for code in lstOfBehaviorDict[-1]:
+                toRmvKey = []
+                dummyCount = 0
+                #for myDict in currBehavDict:
+                for key, value in currBehavDict.items():
+                    match1 = re.search(forPattern1, value )
+                    
+                    if value == "}" and dummyCount == 0:
+                        toRmvKey.append(key)
+                        dummyCount = 1
+                    #TODO: add remove key for "}"
+                    match1Flg = 0
+                    if match1:
+                        match1Flg = 1
+                        toRmvKey.append(key)
+                        start = int(match1.group(1))
+                        end = int(match1.group(2))
+                        print("Range for 'i':", start, "to", end)
+                        pattern = r'[\[(]\s*i\s*[\])]'
+                        if start > end:
+                            tmp = start
+                            start = end
+                            end = tmp
+                        #eg: for i in 31 downto 0
+                        for i in range( start, end+1 ):
+                            #idx = count
+                            unrollDict = {}
+                            for key, value in currBehavDict.items():
+                                match = re.search( pattern, value )
+                                if match:
+                                    #TODO: need to replace () or [] 
+                                    replace = "["+ str(i) +"]"
+                                    clnCntUnrolld = re.sub( pattern, replace, value )
+                                    unrollDict[key] = clnCntUnrolld 
+                                    print(clnCntUnrolld)
+                                    print("\n")
+                                    #idx = idx + 1
+                                else:
+                                    unrollDict[key] = value
+                                    #print(cleanContent[idx+1])
+                                    print("\n")
+                                    #idx = idx + 1
+                            unrollLstofDict.append(unrollDict)
+                            
+                            print("\n")
+                        #pass #temp remove it
+                    #for loop pattern 2
+                    match2 = re.search(forPattern2, value)                    
+                    if match2:
+                        toRmvKey.append(key)
+                        rv = match2.group(1)
+                        start_value = int(match2.group(2))
+                        end_value = int(match2.group(3))
+                        pattern = r'[\[(]\s*x\s*[\])]'
+                        if start_value > end_value:
+                            tmp = start_value
+                            start_value = end_value
+                            end_value = tmp
+
+
+                        if match1Flg == 1:
+                            for i in range(start_value, end_value+1):
+                                unrollDict = {}
+                                for currUnrolledDict in unrollLstofDict:
+                                    for key, value in currUnrolledDict.items():
+                                        match = re.search( pattern, value )
+                                        if match:
+                                            replace = "["+ str(i) +"]"
+                                            clnCntUnrolld = re.sub( pattern, replace, value )
+                                            unrollDict[key] = clnCntUnrolld
+                                        else:
+                                            unrollDict[key] = value
+                                
+                                
+                                #unrollLstofDict.append(unrollDict)
+                        else:
+                            for i in range(start_value, end_value+1):
+                              unrollDict = {}
+                              for key, value in currBehavDict.items():
+                                  match = re.search( pattern, value )
+                                  if match:
+                                      replace = "["+ str(i) +"]"
+                                      clnCntUnrolld = re.sub( pattern, replace, value )
+                                      unrollDict[key] = clnCntUnrolld
+                                  else:
+                                      unrollDict[key] = value
+                            unrollLstofDict.append(unrollDict)
+                if len(unrollLstofDict) != 0:                            
+                    lstOfBehaviorDict.append(unrollLstofDict)
+                
+                
+                pass
+            else:   
+                pass        
+    pass
+
+
 def TuEdaEncodeRiscToCoreDsl(inst, lstofEncoding ):
-     #extract all the content between Format and Syntax
+     #extract all the content between Format and Syntax,
         pattern = r"Format:(.*?)Syntax:"
 
         match = re.search(pattern, inst, re.DOTALL)
@@ -408,7 +554,9 @@ def TuEdaEncodeRiscToCoreDsl(inst, lstofEncoding ):
                         splCase = []
                         
                         #eg. {'PK**[.underline]#xy#...#zz#* 111 ': '6', 'Rs2 ': '4', 'Rs1 ': '4', '001 ': '2', 'Rd': '4', 'OP-P +1110111': '6'}
-                        splCase.append(lstofEncoding[-1])
+                        
+                        #TODO: copy it to seperate list?
+                        #splCase.append(lstofEncoding[-1])
 
                         
                         continue
@@ -443,6 +591,7 @@ def TuEdaEncodeRiscToCoreDsl(inst, lstofEncoding ):
                             #handle this scenario completely
                             start = end = int(values[0])
                         valIdxDict[k] = newVal
+                    # TODO: SMDS32 check its appending
                     lstofEncoding.append(valIdxDict)                    
                     
                 except Exception as e:
@@ -493,10 +642,10 @@ if __name__ == "__main__":
     inst_argsDisass = []
 
     apply_selection(text_file_devided, inst_encodeLst, inst_argsDisass)
-    apply_commenting()
+    #apply_commenting()
     print("Calling create_file")
-    create_file()
-    create_file_table()
+    #create_file()
+    #create_file_table()
 
 #TODO: special case encoding handling pending.
 #TODO: assembly name() using regular expr re.sub() , 7b0`000 
@@ -517,3 +666,66 @@ for k, v in lstofEncoding[325].items():
     create_file()
     create_file_table()
     '''
+
+
+class SliceHandler:
+    def __getitem__(self, index):
+        if isinstance(index, tuple) and len(index) == 2:
+            idx, char = index
+            if idx is None:
+                if char == 'B3':
+                    resStr = "[31:24]"
+                    return resStr 
+                elif char == 'B2':
+                    resStr = "[23:16]"
+                    return resStr
+                elif char == 'B1':
+                    resStr = "[15:8]"
+                    return resStr
+                elif char == 'B0':
+                    resStr = "[7:0]"
+                    return resStr
+                elif char == 'CONCAT':
+                    #resStr = 
+                    pass
+            else:
+                if char == 'B':
+                    return self.get_b_slice(idx)
+                if char == 'H':
+                    return self.get_h_slice(idx) 
+                elif char == 'W':
+                        return self.get_w_slice(idx)
+                elif char == 'D':
+                        return self.get_d_slice(idx) 
+                else:
+                    raise ValueError("Invalid character")
+        else:
+            raise TypeError("Invalid index format")
+            
+
+    def get_b_slice(self, idx):
+        start = idx * 8 + 7
+        end = idx * 8 
+        return self.get_bits(start, end)
+       
+    def get_h_slice(self, idx):
+        start = idx*16 +15
+        end = idx *8
+        return self.get_bits(start, end)
+    
+    def get_w_slice(self, idx):
+        start = idx * 32 + 31
+        end = idx * 32
+        return self.get_bits(start, end)
+
+    def get_d_slice(self, idx):
+        start = idx * 64 + 63
+        end = idx * 64
+        return self.get_bits(start, end)
+     
+    def get_bits(self, start, end):
+        resStr = "[" + str(int(start)) + ":" + str(int(end)) + " ]"
+        return resStr
+    
+    
+    
