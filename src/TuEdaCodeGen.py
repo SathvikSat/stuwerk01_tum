@@ -309,6 +309,11 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
         if '' in content:
             start_index = content.index('') + 1
             end_index = 0
+
+            #reset
+            currBehavDict = { }    
+            cleanContent = []
+            
             for i in range(start_index, len(content)):
                 if content[i] == '' or content[i] == '  ':
                     end_index = i
@@ -324,7 +329,6 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                 count = 0
                 
                 #for code in cleanContent:
-                    
                 currBehavDict = {i: code for i, code in enumerate(cleanContent)}
                 #lstOfBehaviorDict.append(currBehavDict)
                 unrollLstofDict = []
@@ -333,6 +337,13 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                 #for code in lstOfBehaviorDict[-1]:
                 toRmvKey = []
                 dummyCount = 0
+
+                #both match1 and match2 pattern occured
+                match1and2 = 0
+                
+                #default value set to zero
+                match1Flg = 0
+
                 #for myDict in currBehavDict:
                 for key, value in currBehavDict.items():
                     match1 = re.search(forPattern1, value )
@@ -341,7 +352,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                         toRmvKey.append(key)
                         dummyCount = 1
                     #TODO: add remove key for "}"
-                    match1Flg = 0
+                    
                     if match1:
                         match1Flg = 1
                         toRmvKey.append(key)
@@ -353,6 +364,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                             tmp = start
                             start = end
                             end = tmp
+
                         #eg: for i in 31 downto 0
                         for i in range( start, end+1 ):
                             #idx = count
@@ -378,6 +390,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                         #pass #temp remove it
                     #for loop pattern 2
                     match2 = re.search(forPattern2, value)                    
+                    #TODO: check RV32 not detecting, directly going to RV64
                     if match2:
                         toRmvKey.append(key)
                         rv = match2.group(1)
@@ -391,33 +404,72 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
 
 
                         if match1Flg == 1:
+                            
+                            #reset match1Flg
+                            match1Flg = 0
+                            match1and2 = 1
+
+                            modUnrollDictLst = []
+                            patternWhnMtch1 = r'[\[(]\s*x\s*[\])]'
+                            for currUnrolledDict in unrollLstofDict:
+                                unrollDict = {} # need to change inplace
+                                unrollDictCpy = {}
+                                 
+                                
+                                for i in range(start_value, end_value+1):
+                                    k = 0
+                                    modUnrollDict = {}
+                                    for key, value in currUnrolledDict.items():
+                                        match = re.search( patternWhnMtch1, value )
+                                        if match:
+                                            #TODO: cross check this 
+                                            replace = "["+ str(i) +"]"
+                                            
+                                            #copy available value
+                                            unrollDictCpy = currUnrolledDict[key]
+                                            
+                                            #replace new value
+                                            unrollDict = re.sub( pattern, replace, value )
+                                            #clnCntUnrolld = re.sub( pattern, replace, value )
+                                            #unrollDict[key] = clnCntUnrolld
+
+                                            #update to new value only in modUnrollDict
+                                            currUnrolledDict[key] = unrollDict
+                                            modUnrollDict[k] = currUnrolledDict[key]
+
+                                            #retain back old value in ith loc in currUnrolledDict
+                                            currUnrolledDict[key] = unrollDictCpy
+
+
+                                            k += 1
+                                        else:
+                                            #TODO: Need to remove unwanted lines
+                                            currUnrolledDict[key] = value
+                                            modUnrollDict[k] = currUnrolledDict[key]
+                                            k += 1
+                                            #unrollDict[key] = value
+                                    modUnrollDictLst.append(modUnrollDict)
+                                
+                                #as re-modifying the previously available unrolledLst
+                                #unrollLstofDict.append(unrollDict)
+                        #if match1 didnt happen 
+                        else:
+                            
                             for i in range(start_value, end_value+1):
                                 unrollDict = {}
-                                for currUnrolledDict in unrollLstofDict:
-                                    for key, value in currUnrolledDict.items():
-                                        match = re.search( pattern, value )
-                                        if match:
-                                            replace = "["+ str(i) +"]"
-                                            clnCntUnrolld = re.sub( pattern, replace, value )
-                                            unrollDict[key] = clnCntUnrolld
-                                        else:
-                                            unrollDict[key] = value
-                                
-                                
-                                #unrollLstofDict.append(unrollDict)
-                        else:
-                            for i in range(start_value, end_value+1):
-                              unrollDict = {}
-                              for key, value in currBehavDict.items():
-                                  match = re.search( pattern, value )
-                                  if match:
-                                      replace = "["+ str(i) +"]"
-                                      clnCntUnrolld = re.sub( pattern, replace, value )
-                                      unrollDict[key] = clnCntUnrolld
-                                  else:
-                                      unrollDict[key] = value
-                            unrollLstofDict.append(unrollDict)
-                if len(unrollLstofDict) != 0:                            
+                                for key, value in currBehavDict.items():
+                                    match = re.search( pattern, value )
+                                    if match:
+                                        replace = "["+ str(i) +"]"
+                                        clnCntUnrolld = re.sub( pattern, replace, value )
+                                        unrollDict[key] = clnCntUnrolld
+                                    else:
+                                        unrollDict[key] = value
+                                unrollLstofDict.append(unrollDict)
+                
+                    #dont
+                    '''and match1and2 != 1'''
+                if (len(unrollLstofDict) != 0  ) :  
                     lstOfBehaviorDict.append(unrollLstofDict)
                 
                 
