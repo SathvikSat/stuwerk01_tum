@@ -322,8 +322,14 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                 # for loop patterns
                 #TODO:remove spaces for pattern
                 forPattern1 = r'\s*for\s*\(\s*i\s*=\s*(\d+)\s*to\s*(\d+)\s*\)'
-                forPattern2 = r'\s*for\s*(RV\d+)[\s,]*:\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)[\s,]*'  
+                #forPattern2 = r'\s*for\s*(RV\d+)[\s,]*:\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)[\s,]*'  
                 
+                #forPattern1 = r'\s*for\s*\(?\s*i\s*=\s*(\d+)\s*to\s*(\d+)\s*\)?'
+                #forPattern2 = r'\s*for\s*(RV\d+)\s*:\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)\s*'
+                forPattern2 = r'\s*for\s*(RV\d+)\s*:\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)\s*'
+
+
+
                 #clean content to be unrolled
                 cleanContent = content[start_index:end_index]
                 count = 0
@@ -359,7 +365,8 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                         start = int(match1.group(1))
                         end = int(match1.group(2))
                         print("Range for 'i':", start, "to", end)
-                        pattern = r'[\[(]\s*i\s*[\])]'
+                        # pattern = r'[\[(]\s*i\s*[\])]' [i] & (i)
+                        pattern = r'\[\s*i\s*\]' # just [i]
                         if start > end:
                             tmp = start
                             start = end
@@ -389,6 +396,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                             print("\n")
                         #pass #temp remove it
                     #for loop pattern 2
+                    #TODO: seperate forPattern for RV32 and RV64
                     match2 = re.search(forPattern2, value)                    
                     #TODO: check RV32 not detecting, directly going to RV64
                     if match2:
@@ -396,7 +404,8 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                         rv = match2.group(1)
                         start_value = int(match2.group(2))
                         end_value = int(match2.group(3))
-                        pattern = r'[\[(]\s*x\s*[\])]'
+                        #pattern = r'[\[(]\s*x\s*[\])]' [x] and (x)
+                        pattern = r'\[\s*x\s*\]' # just [x]
                         if start_value > end_value:
                             tmp = start_value
                             start_value = end_value
@@ -410,7 +419,9 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                             match1and2 = 1
 
                             modUnrollDictLst = []
-                            patternWhnMtch1 = r'[\[(]\s*x\s*[\])]'
+                            #patternWhnMtch1 = r'[\[(]\s*x\s*[\])]'
+                            patternWhnMtch1 = r'\[\s*x\s*\]'
+
                             for currUnrolledDict in unrollLstofDict:
                                 unrollDict = {} # need to change inplace
                                 unrollDictCpy = {}
@@ -469,7 +480,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                 
                     #dont
                     '''and match1and2 != 1'''
-                if (len(unrollLstofDict) != 0  ) :  
+                if (len(unrollLstofDict) != 0  or match2 ) :  
                     lstOfBehaviorDict.append(unrollLstofDict)
                 
                 
