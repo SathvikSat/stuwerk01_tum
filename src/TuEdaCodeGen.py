@@ -1,5 +1,65 @@
 from utils.TuEdaCommon import *
 
+class SliceHandler:
+    #index is tuple of length 2 as arg for __getitem__((2, 'B')) 
+    def __getitem__(self, index):
+        if isinstance(index, tuple) and len(index) == 2:
+            idx, char = index
+            if idx is None:
+                if char == 'B3':
+                    resStr = "[31:24]"
+                    return resStr 
+                elif char == 'B2':
+                    resStr = "[23:16]"
+                    return resStr
+                elif char == 'B1':
+                    resStr = "[15:8]"
+                    return resStr
+                elif char == 'B0':
+                    resStr = "[7:0]"
+                    return resStr
+                elif char == 'CONCAT':
+                    resStr = '{' + '}'
+                    pass
+            else:
+                if char == 'B':
+                    return self.get_b_slice(idx)
+                if char == 'H':
+                    return self.get_h_slice(idx) 
+                elif char == 'W':
+                        return self.get_w_slice(idx)
+                elif char == 'D':
+                        return self.get_d_slice(idx) 
+                else:
+                    raise ValueError("Invalid character")
+        else:
+            raise TypeError("Invalid index format")
+            
+
+    def _get_b_slice(self, idx):
+        start = idx * 8 + 7
+        end = idx * 8 
+        return self.get_bits(start, end)
+       
+    def _get_h_slice(self, idx):
+        start = idx*16 +15
+        end = idx *8
+        return self.get_bits(start, end)
+    
+    def _get_w_slice(self, idx):
+        start = idx * 32 + 31
+        end = idx * 32
+        return self.get_bits(start, end)
+
+    def _get_d_slice(self, idx):
+        start = idx * 64 + 63
+        end = idx * 64
+        return self.get_bits(start, end)
+     
+    def _get_bits(self, start, end):
+        resStr = "[" + str(int(start)) + ":" + str(int(end)) + " ]"
+        return resStr
+  
 def read_file():
     # Get the current working directory
     current_dir = os.getcwd()
@@ -19,12 +79,21 @@ def devide_text_file(text_file):
     return devided_text_file
 
 def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
+    
+    #for storing instruction encodings
     lstofDict_ = []
     lstofEncoding = []
     lstofArgsDisass = []
 
+    #for storing unrolled loops 
     lstOfBehaviorDict = []
     currBehavDict = {}
+
+    #for handling certain non-unrolled cases
+    behaviour = SliceHandler()
+    #result = behaviour((5, 'B')) OR
+    #result = behaviour[5, 'B']
+
 
     for part in devided_text_file:        
         #name
@@ -54,7 +123,7 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
                 inst = part
 
                 TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
-                                            currBehavDict )
+                                            currBehavDict, behaviour )
                 #temp
                 #continue
             #formate
@@ -257,8 +326,19 @@ def create_file():
             file.write('    }\n\n\n\n')
 
 
-#strip contents from the string before ith occurance of '|'
-#using '|' for count and strip reference  
+ 
+"""
+    Used with TuEdaEncodeRiscToCoreDsl()
+    Strip contents from the string before ith occurance of '|'
+    Using '|' for count and strip reference 
+
+    Parameters:
+    myLst   (list): 
+    count   (int) :
+
+    Returns:
+    myLst (list): updated myLst
+    """
 def strip_str_contents( myLst, count ):
     for i, string_ in enumerate(myLst):
         parts = string_.split('|')
@@ -282,7 +362,18 @@ def split_list(lst, count):
     return new_lst
 
 
-#dict updation with list of values, initially 'values' being set to None
+
+"""
+    Used with TuEdaEncodeRiscToCoreDsl()
+    dictionary updation with list of values, initially 'values' being set to None
+
+    Parameters:
+    lst      (list) : 
+    dict_    (dict) :
+
+    Returns:
+    dict_ (dict): updated dict_
+    """
 def update_dict(lst, dict_):
     for k, v in zip(dict_.keys(), lst):
         if dict_[k] is None:
@@ -292,9 +383,44 @@ def update_dict(lst, dict_):
     return dict_
 
 
-#To convert RSIC-V instruction behaviours into coreDSL format
+
+def concatMatch():
+    pass
+def absMatch():
+    pass
+def seMatch():
+    pass
+def zeMatch():
+    pass
+def halfWordMatch():
+    pass
+def byteMatch():
+    pass
+def doubleWordMatch():
+    pass
+def wordMatch():
+    pass
+def saturateQnMatch():
+    pass
+def saturateUmMatch():
+    pass
+
+
+
+"""
+    To convert RSIC-V instruction behaviours into coreDSL format
+
+    Parameters:
+    inst              (str) : 
+    lstOfBehaviorDict (list): 
+    currBehavDict     (dict):
+    behaviour         (__main__.SliceHandler):
+
+    Returns:
+    results stored back to lstOfBehaviorDict (list)
+    """
 def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
-                                currBehavDict ):
+                                currBehavDict, behaviour ):
     #extract all the content between Operations and Exceptions
     pattern = r"Operations:(.*?)Exceptions:"
     match = re.search(pattern, inst, re.DOTALL)
@@ -484,19 +610,39 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                                     else:
                                         unrollDict[key] = value
                                 unrollLstofDict.append(unrollDict)
-                
+
+                    #handle non-unrolled cases
+                    #if no match1 or match2
+                    else:
+                        concatMatch()
+                        absMatch()
+                        seMatch()
+                        zeMatch()
+                        halfWordMatch()
+                        byteMatch()
+                        doubleWordMatch()
+                        wordMatch()
+                        saturateQnMatch()
+                        saturateUmMatch()
+                        pass
                     #dont
                     '''and match1and2 != 1'''
                 if (len(unrollLstofDict) != 0  or match2 ) :  
-                    lstOfBehaviorDict.append(unrollLstofDict)
-                
-                
-                
+                    lstOfBehaviorDict.append(unrollLstofDict)     
             else:   
                 pass        
-    print("Done with loopUnrolling")
+    
 
+"""
+    To convert RSIC-V instruction encodings into coreDSL encoding format
 
+    Parameters:
+    inst          (str) : 
+    lstofEncoding (list):
+
+    Returns:
+    results stored back to lstofEncoding (list)
+"""
 def TuEdaEncodeRiscToCoreDsl(inst, lstofEncoding ):
      #extract all the content between Format and Syntax,
         pattern = r"Format:(.*?)Syntax:"
@@ -679,6 +825,13 @@ def TuEdaEncodeRiscToCoreDsl(inst, lstofEncoding ):
                     #pdb.set_trace()
             return lstofEncoding
 
+
+"""
+    main function
+
+    Parameters:
+    Returns:
+"""
 def create_file_table():
     df = pd.DataFrame(list(zip(instruction_name_list, instruction_syntax_list,instruction_description_list, instruction_operation_list)),
                columns =['Name', 'syntax', 'description', 'operations'])
@@ -738,64 +891,5 @@ for k, v in lstofEncoding[325].items():
     '''
 
 
-class SliceHandler:
-    def __getitem__(self, index):
-        if isinstance(index, tuple) and len(index) == 2:
-            idx, char = index
-            if idx is None:
-                if char == 'B3':
-                    resStr = "[31:24]"
-                    return resStr 
-                elif char == 'B2':
-                    resStr = "[23:16]"
-                    return resStr
-                elif char == 'B1':
-                    resStr = "[15:8]"
-                    return resStr
-                elif char == 'B0':
-                    resStr = "[7:0]"
-                    return resStr
-                elif char == 'CONCAT':
-                    #resStr = 
-                    pass
-            else:
-                if char == 'B':
-                    return self.get_b_slice(idx)
-                if char == 'H':
-                    return self.get_h_slice(idx) 
-                elif char == 'W':
-                        return self.get_w_slice(idx)
-                elif char == 'D':
-                        return self.get_d_slice(idx) 
-                else:
-                    raise ValueError("Invalid character")
-        else:
-            raise TypeError("Invalid index format")
-            
 
-    def get_b_slice(self, idx):
-        start = idx * 8 + 7
-        end = idx * 8 
-        return self.get_bits(start, end)
-       
-    def get_h_slice(self, idx):
-        start = idx*16 +15
-        end = idx *8
-        return self.get_bits(start, end)
-    
-    def get_w_slice(self, idx):
-        start = idx * 32 + 31
-        end = idx * 32
-        return self.get_bits(start, end)
 
-    def get_d_slice(self, idx):
-        start = idx * 64 + 63
-        end = idx * 64
-        return self.get_bits(start, end)
-     
-    def get_bits(self, start, end):
-        resStr = "[" + str(int(start)) + ":" + str(int(end)) + " ]"
-        return resStr
-    
-    
-    
