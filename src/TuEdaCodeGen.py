@@ -322,13 +322,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                 # for loop patterns
                 #TODO:remove spaces for pattern
                 forPattern1 = r'\s*for\s*\(\s*i\s*=\s*(\d+)\s*to\s*(\d+)\s*\)'
-                #forPattern2 = r'\s*for\s*(RV\d+)[\s,]*:\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)[\s,]*'  
-                
-                #forPattern1 = r'\s*for\s*\(?\s*i\s*=\s*(\d+)\s*to\s*(\d+)\s*\)?'
-                #forPattern2 = r'\s*for\s*(RV\d+)\s*:\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)\s*'
-                forPattern2 = r'\s*for\s*(RV\d+)\s*:\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)\s*'
-
-
+                forPattern2 = r'\s*for\s*(RV\d+)\s*[,:]*\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)\s*[,:]*'
 
                 #clean content to be unrolled
                 cleanContent = content[start_index:end_index]
@@ -360,6 +354,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                     #TODO: add remove key for "}"
                     
                     if match1:
+                        doNothing = False
                         match1Flg = 1
                         toRmvKey.append(key)
                         start = int(match1.group(1))
@@ -367,13 +362,26 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                         print("Range for 'i':", start, "to", end)
                         # pattern = r'[\[(]\s*i\s*[\])]' [i] & (i)
                         pattern = r'\[\s*i\s*\]' # just [i]
+                        patternDoNothing = r'\(\s*i\s*\)'
                         if start > end:
                             tmp = start
                             start = end
                             end = tmp
 
+                        #check if pattern do nothing was found
+                        for key, value in currBehavDict.items():
+                            matchDoNthng = re.search( patternDoNothing, value )
+                            if matchDoNthng:
+                                doNothing = True
+                       
                         #eg: for i in 31 downto 0
                         for i in range( start, end+1 ):
+
+                            if doNothing == True:
+                                doNothing = False
+                                #do nothing and break sice patternDoNthng Matched
+                                break
+
                             #idx = count
                             unrollDict = {}
                             for key, value in currBehavDict.items():
@@ -392,7 +400,6 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                                     print("\n")
                                     #idx = idx + 1
                             unrollLstofDict.append(unrollDict)
-                            
                             print("\n")
                         #pass #temp remove it
                     #for loop pattern 2
@@ -484,10 +491,10 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                     lstOfBehaviorDict.append(unrollLstofDict)
                 
                 
-                pass
+                
             else:   
                 pass        
-    pass
+    print("Done with loopUnrolling")
 
 
 def TuEdaEncodeRiscToCoreDsl(inst, lstofEncoding ):
