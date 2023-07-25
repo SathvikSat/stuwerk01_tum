@@ -74,16 +74,23 @@ class SliceHandler:
     myLst (list): updated myLst
 """
 def TuEdaBehavOnUnrolledLoops( lstOfBehaviorDict32, lstOfBehaviorDict64 ):
-
+    
+    for currBehav in   lstOfBehaviorDict32:
+        for item in currBehav:
+            #concatPattrn = 
+            pass
+        pass          
     pass
 
+def TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict ):
+    pass
 
 def read_file():
     # Get the current working directory
     current_dir = os.getcwd()
     
     # Construct the relative path to the file
-    relative_path = os.path.join(current_dir, '/home/ash-ketchum/Downloads/code_generation-main/input/P-ext-proposal.txt')
+    relative_path = os.path.join(current_dir, '/home/ash-ketchum/Downloads/code_generation-main/input/P-ext-proposal1.txt')
     print( relative_path )
     with open( relative_path,'r') as file:
         text = file.read()
@@ -107,6 +114,7 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
     lstOfBehaviorDict32 = []
     lstOfBehaviorDict64 = []
     currBehavDict = {}
+    lstnonLoopBehaviorDict = []
 
     #for handling certain non-unrolled cases
     behaviour = SliceHandler()
@@ -142,7 +150,7 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
                 inst = part
 
                 TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict64,\
-                                            currBehavDict, behaviour )
+                                            currBehavDict, behaviour, lstnonLoopBehaviorDict )
                 
                 #temp
                 #continue
@@ -180,7 +188,9 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
     #continue further handling of behaviours on unrolled loops only
     TuEdaBehavOnUnrolledLoops( lstOfBehaviorDict32, lstOfBehaviorDict64 )
 
-
+    #TODO: need to handle non-unrolled behaviour cases as well
+    TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict )
+    
     #continue encoding after all encoding contents are extracted    
     for myDict in lstofEncoding:
         encoding = ""
@@ -445,7 +455,7 @@ def xlenMatch():
     results stored back to lstOfBehaviorDict (list)
     """
 def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict64,
-                                currBehavDict, behaviour ):
+                                currBehavDict, behaviour, lstnonLoopBehaviorDict ):
     #extract all the content between Operations and Exceptions
     pattern = r"Operations:(.*?)Exceptions:"
     match = re.search(pattern, inst, re.DOTALL)
@@ -505,7 +515,8 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
                 unrolled = False
 
                 #for myDict in currBehavDict:
-                for key, value in currBehavDict.items():
+                for index, (key, value) in enumerate(currBehavDict.items()):
+                #for key, value in currBehavDict.items():
                     rv32_exists = False
                     '''
                     match1 = re.search(forPattern1, value )
@@ -673,6 +684,13 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
                                 else:
                                     unrollLstofDict64.append(unrollDict)
                     
+                        #Handle non-loop behaviour cases  
+                    else:
+                        #TODO: few other RV32 or 64 types are here but without for loop mostly
+                        if (index == len(currBehavDict) - 1):
+                            lstnonLoopBehaviorDict.append( currBehavDict )
+                            break
+                        pass
                     #dont
                     '''and match1and2 != 1'''
                 #TODO: need to seperate RV32 and RV64 into seperate lists
