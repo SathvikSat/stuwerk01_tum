@@ -19,7 +19,8 @@ class SliceHandler:
                     resStr = "[7:0]"
                     return resStr
                 elif char == 'CONCAT':
-                    resStr = '{' + '}'
+                    #TODO:
+                    resStr = '::'
                     pass
             else:
                 if char == 'B':
@@ -59,7 +60,24 @@ class SliceHandler:
     def _get_bits(self, start, end):
         resStr = "[" + str(int(start)) + ":" + str(int(end)) + " ]"
         return resStr
-  
+
+
+"""
+    To further handling of behaviours on unrolled loops only
+
+    Parameters:
+    lstOfBehaviorDict32 (list)  
+    lstOfBehaviorDict64 (list)  
+    
+
+    Returns:
+    myLst (list): updated myLst
+"""
+def TuEdaBehavOnUnrolledLoops( lstOfBehaviorDict32, lstOfBehaviorDict64 ):
+
+    pass
+
+
 def read_file():
     # Get the current working directory
     current_dir = os.getcwd()
@@ -86,7 +104,8 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
     lstofArgsDisass = []
 
     #for storing unrolled loops 
-    lstOfBehaviorDict = []
+    lstOfBehaviorDict32 = []
+    lstOfBehaviorDict64 = []
     currBehavDict = {}
 
     #for handling certain non-unrolled cases
@@ -122,8 +141,9 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
                 instruction_operation_list.append(instruction_operation)
                 inst = part
 
-                TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
+                TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict64,\
                                             currBehavDict, behaviour )
+                
                 #temp
                 #continue
             #formate
@@ -156,6 +176,10 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
             '''
         else:
             pass
+
+    #continue further handling of behaviours on unrolled loops only
+    TuEdaBehavOnUnrolledLoops( lstOfBehaviorDict32, lstOfBehaviorDict64 )
+
 
     #continue encoding after all encoding contents are extracted    
     for myDict in lstofEncoding:
@@ -404,7 +428,8 @@ def saturateQnMatch():
     pass
 def saturateUmMatch():
     pass
-
+def xlenMatch():
+    pass
 
 
 """
@@ -419,7 +444,7 @@ def saturateUmMatch():
     Returns:
     results stored back to lstOfBehaviorDict (list)
     """
-def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
+def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict64,
                                 currBehavDict, behaviour ):
     #extract all the content between Operations and Exceptions
     pattern = r"Operations:(.*?)Exceptions:"
@@ -447,7 +472,9 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
             if end_index > start_index:  
                 # for loop patterns
                 #TODO:remove spaces for pattern
+                #TODO: forPattern1 not needed because of break!
                 forPattern1 = r'\s*for\s*\(\s*i\s*=\s*(\d+)\s*to\s*(\d+)\s*\)'
+
                 forPattern2 = r'\s*for\s*(RV\d+)\s*[,:]*\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)\s*[,:]*'
 
                 #clean content to be unrolled
@@ -457,7 +484,10 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                 #for code in cleanContent:
                 currBehavDict = {i: code for i, code in enumerate(cleanContent)}
                 #lstOfBehaviorDict.append(currBehavDict)
-                unrollLstofDict = []
+                unrollLstofDict32 = []
+                unrollLstofDict64 = []
+                rv32_exists = False
+
                 #unrollDict = {}
                 #for loop pattern
                 #for code in lstOfBehaviorDict[-1]:
@@ -468,10 +498,16 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                 match1and2 = 0
                 
                 #default value set to zero
+                #TODO: remove this 
                 match1Flg = 0
+
+                #to check unrolling was performed or not 
+                unrolled = False
 
                 #for myDict in currBehavDict:
                 for key, value in currBehavDict.items():
+                    rv32_exists = False
+                    '''
                     match1 = re.search(forPattern1, value )
                     
                     if value == "}" and dummyCount == 0:
@@ -480,6 +516,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                     #TODO: add remove key for "}"
                     
                     if match1:
+                        unrolled = True
                         doNothing = False
                         match1Flg = 1
                         toRmvKey.append(key)
@@ -527,12 +564,31 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                                     #idx = idx + 1
                             unrollLstofDict.append(unrollDict)
                             print("\n")
+
+
+                    '''
+
                         #pass #temp remove it
                     #for loop pattern 2
+                    
                     #TODO: seperate forPattern for RV32 and RV64
-                    match2 = re.search(forPattern2, value)                    
+                    match2 = re.search(forPattern2, value )                    
+                    
+                    #to seperate RV32 and RV64
+                    #rv32_exists = match2.group(1) == 'RV32' if match2 else False
+
+                    #to seperate RV32 and RV64
+                    #rv64_exists = forPattern2.group(1) == 'RV64' if forPattern2 else False
+
                     #TODO: check RV32 not detecting, directly going to RV64
                     if match2:
+                        rv = match2.group(1)
+                        if rv == 'RV32':
+                            rv32_exists = True
+                            rv64_exists = False
+
+                        #if rv32_exists == True
+                        unrolled = True
                         toRmvKey.append(key)
                         rv = match2.group(1)
                         start_value = int(match2.group(2))
@@ -546,7 +602,9 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
 
 
                         if match1Flg == 1:
-                            
+
+                            #TODO: temporarily comments below
+                            '''
                             #reset match1Flg
                             match1Flg = 0
                             match1and2 = 1
@@ -596,10 +654,11 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                                 
                                 #as re-modifying the previously available unrolledLst
                                 #unrollLstofDict.append(unrollDict)
+                            '''
                         #if match1 didnt happen 
                         else:
                             
-                            for i in range(start_value, end_value+1):
+                            for i in range( start_value, (end_value + 1) ):
                                 unrollDict = {}
                                 for key, value in currBehavDict.items():
                                     match = re.search( pattern, value )
@@ -609,26 +668,56 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict,\
                                         unrollDict[key] = clnCntUnrolld
                                     else:
                                         unrollDict[key] = value
-                                unrollLstofDict.append(unrollDict)
-
-                    #handle non-unrolled cases
-                    #if no match1 or match2
-                    else:
-                        concatMatch()
-                        absMatch()
-                        seMatch()
-                        zeMatch()
-                        halfWordMatch()
-                        byteMatch()
-                        doubleWordMatch()
-                        wordMatch()
-                        saturateQnMatch()
-                        saturateUmMatch()
-                        pass
+                                if rv32_exists == True:
+                                    unrollLstofDict32.append(unrollDict)
+                                else:
+                                    unrollLstofDict64.append(unrollDict)
+                    
                     #dont
                     '''and match1and2 != 1'''
-                if (len(unrollLstofDict) != 0  or match2 ) :  
-                    lstOfBehaviorDict.append(unrollLstofDict)     
+                #TODO: need to seperate RV32 and RV64 into seperate lists
+                if (len(unrollLstofDict32) != 0  or match2 or len(unrollLstofDict64) != 0 ) :  
+                    if (len(unrollLstofDict64) != 0):
+                        lstOfBehaviorDict64.append(unrollLstofDict64)
+                    if (len(unrollLstofDict32) != 0):
+                      lstOfBehaviorDict32.append(unrollLstofDict32)
+
+                #handle non-unrolled cases by checking unrolled flag status
+                #TODO: continue from here
+                if unrolled == False:
+
+                    #eg. parse "t_L = CONCAT(Rd(4,1),1'b0); t_H = CONCAT(Rd(4,1),1'b1);"
+                    #This "concatPattern" is just used to split multiple concat in a given line/string
+                    #not for exact matching of concat
+                    concatPattern = r'CONCAT\s*\((.*?)\)'
+                    
+                    #TODO: need to handle forLoop1Pattern here
+                    #currBehavDict use this
+                    for key, value in currBehavDict.items():
+                        concatMatches = re.findall( concatPattern, value, re.IGNORECASE )
+
+                        if concatMatches:
+                            #split the string at ';' if concat was found in the string
+                            split_value_clean = []
+                            split_value = value.split(";")
+                            for s in split_value:
+                                s = s.strip()
+                                if s:
+                                    split_value_clean.append(s) 
+                            if len(split_value_clean) > 0:
+                                pass   
+                        #concatMatches = re.findall( concatPattern, value, re.IGNORECASE )
+                        #if concatMatches:
+                            #for concatMatch in concatMatches:
+                                #concatArgs = [arg.strip() for arg in concatMatch.split(',')]
+                               # pass 
+                            #pass
+                        #match different patterns and call equivalent functions 
+                        #match from lowest one to highest one
+
+                        pass
+                    pass
+            
             else:   
                 pass        
     
