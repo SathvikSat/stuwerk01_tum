@@ -195,6 +195,8 @@ def TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict ):
                 mod_currBehav[key_] = modified_value
 
             #Store the results of concat operation for all unrolled instructions    
+            #TODO: need to seperate RV32 and RV64 in non-loop behaviours as well
+            #TODO: certain concats lines are deleted as expected  but are not used in the behaviour fix this bug 
             mod_currBehavLst.append(mod_currBehav)
 
 # Now mod_currBehav contains the modified values
@@ -596,8 +598,8 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
             cleanContent = []
             
             for i in range(start_index, len(content)):
-                if content[i] == '' or content[i] == '  ':
-                    end_index = i
+                if content[i] == '*': #or content[i] == '  ':
+                    end_index = i - 1
                     break
             if end_index > start_index:  
                 # for loop patterns
@@ -636,7 +638,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
 
                 #for myDict in currBehavDict:
                 for index, (key, value) in enumerate(currBehavDict.items()):
-                #for key, value in currBehavDict.items():
+                
                     rv32_exists = False
                     '''
                     match1 = re.search(forPattern1, value )
@@ -1117,6 +1119,4 @@ for k, v in lstofEncoding[325].items():
     create_file_table()
     '''
 
-
-
-
+#EoF
