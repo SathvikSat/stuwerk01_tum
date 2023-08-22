@@ -78,12 +78,130 @@ def TuEdaBehavOnUnrolledLoops( lstOfBehaviorDict32, lstOfBehaviorDict64 ):
     for currBehav in   lstOfBehaviorDict32:
         for item in currBehav:
             #concatPattrn = 
+            
             pass
         pass          
     pass
 
+
+def replace_sub_arguments(match):
+    #sub_arguments = match.group(1)
+    #sub_arguments = re.sub(r'\((\d+),(\d+)\)', r'(\1:\2)', sub_arguments)
+    #return sub_arguments
+    x, y = match.group(1).split(',')
+    mod_x = x.replace('(', '[')
+    return f'({mod_x}:{y}]'
+
+def replace_sub_comma_arguments(match):
+    
+    return match.group().replace(',', '::') 
+
 def TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict ):
-    pass
+    
+    Concatpattern1 = r'\bCONCAT\s*\('
+    #concatPattern = r'\bCONCAT\s*\(\s*((?:[^(),]|(?R))+)\s*\)'
+    concatPattern = r'\bCONCAT\s*\(\s*(.*?)\s*\)'
+    
+    #Store the result of concat() operations for all unrolled loops
+    mod_currBehavLst = []
+    
+    #iterate behavior
+    for currBehav in lstnonLoopBehaviorDict:
+        
+        #check for 'CONCAT'
+        
+        matchConcatFlg = False
+        lstOfKeyToRmv = []
+        clean_k = []
+        clean_v = []
+        mod_res_concat_dict = {}
+        concatLstFlg = False
+
+        for key, value in currBehav.items():
+            matchConcat = re.search(Concatpattern1, value )
+            if matchConcat:
+                concatLstFlg = True
+                matchConcatFlg = True
+                dictItemSplit = value.split(';')
+                cleanDictItemSplit = [s.strip() for s in dictItemSplit if s != '' and  s != "" and s != ' ']
+
+              
+                
+                #iterate multiple CONCATs if any
+                iter = 0
+                for concats in  cleanDictItemSplit:
+                    matches = re.search( concatPattern, concats )
+                    if matches:
+                        iter = iter + 1
+                        #for match in matches:
+                        arguments = matches.group(1)
+
+                        commaCnt = concats.count(',')
+                        if commaCnt > 1:
+                            res = re.sub(r'\((.*?)\)', replace_sub_arguments, concats)
+                        else: res = concats
+
+                        res_concat = re.sub(r',',replace_sub_comma_arguments, res )
+                        #Remove concat keyword and associated braces
+
+                        #### Partial Ref. ChatGPT Begins #####
+                        keyToRem = "CONCAT"
+
+                        # Find the starting index of the keyword
+                        start_index = res_concat.find(keyToRem)
+
+                        # Find the ending index of the associated closing parenthesis
+                        end_index = res_concat.find(')', start_index)
+
+                        # Remove the keyword and associated parentheses, len('CONCAT(') == 7
+                        mod_res_concat = res_concat[:start_index] + res_concat[(start_index+7): end_index] + res_concat[end_index + 1:]
+
+                        #print(mod_res_concat)  # Output: "t_L = Rd[4:1]::1'b0"
+                        #### Partial Ref. ChatGPT Ends #####
+                        k, v = mod_res_concat.split('=')
+                        k_mod =  k.replace(" ", "")                    
+                        
+                        #To make the key unique
+                        if  k_mod in clean_k:
+                            k_mod = str(k_mod) + "_" + str(iter)
+                        
+                        clean_k.append(k_mod)
+                        
+                        clean_v.append(v)
+
+                        #once concat operation is being perfomed remove the associated key,value from dict
+                        lstOfKeyToRmv.append(key)
+        
+            if matchConcatFlg:
+                matchConcatFlg = False
+                mod_res_concat_dict = dict(zip(clean_k, clean_v))
+
+        for key in lstOfKeyToRmv:
+            if key in currBehav:
+                currBehav.pop(key)
+    
+
+            #update concatenated variable locations
+        if concatLstFlg:
+            
+            concatLstFlg = False
+            mod_currBehav = {}
+
+            for key_, value_ in currBehav.items():
+                modified_value = value_
+                for k_, v_ in mod_res_concat_dict.items():
+                    if k_ in modified_value:
+                        modified_value = modified_value.replace(k_, v_)
+                mod_currBehav[key_] = modified_value
+
+            #Store the results of concat operation for all unrolled instructions    
+            mod_currBehavLst.append(mod_currBehav)
+
+# Now mod_currBehav contains the modified values
+ 
+        print("Dummy")        
+
+    print("Exiting")  
 
 def read_file():
     # Get the current working directory
@@ -446,13 +564,15 @@ def xlenMatch():
     To convert RSIC-V instruction behaviours into coreDSL format
 
     Parameters:
-    inst              (str) : 
-    lstOfBehaviorDict (list): 
-    currBehavDict     (dict):
-    behaviour         (__main__.SliceHandler):
+    inst                    (str) : 
+    lstOfBehaviorDict32     (list): 
+    lstOfBehaviorDict64     (list): 
+    lstnonLoopBehaviorDict  (list):
+    currBehavDict           (dict):
+    behaviour               (__main__.SliceHandler):
 
     Returns:
-    results stored back to lstOfBehaviorDict (list)
+    results stored back to lstOfBehaviorDict32/64/otherNonLoopCases (list)
     """
 def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict64,
                                 currBehavDict, behaviour, lstnonLoopBehaviorDict ):

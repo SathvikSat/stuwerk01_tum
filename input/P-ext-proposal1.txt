@@ -18527,19 +18527,19 @@ For RV64 PACK/PACKU encoding format, please see <<pack_packu>>.
 
 *Description:*
 
-(PKBB32) moves Rs1.W[0] to Rd.W[1] and moves Rs2.W[0] to Rd.W[0].
+  (PKBB32) moves Rs1.W[0] to Rd.W[1] and moves Rs2.W[0] to Rd.W[0].
 
-(PKBT32) moves Rs1.W[0] to Rd.W[1] and moves Rs2.W[1] to Rd.W[0].
+  (PKBT32) moves Rs1.W[0] to Rd.W[1] and moves Rs2.W[1] to Rd.W[0].
 
-(PKTT32) moves Rs1.W[1] to Rd.W[1] and moves Rs2.W[1] to Rd.W[0].
+  (PKTT32) moves Rs1.W[1] to Rd.W[1] and moves Rs2.W[1] to Rd.W[0].
 
-(PKTB32) moves Rs1.W[1] to Rd.W[1] and moves Rs2.W[0] to Rd.W[0].
+  (PKTB32) moves Rs1.W[1] to Rd.W[1] and moves Rs2.W[0] to Rd.W[0].
 
-*Operations:*
+  *Operations:*
 
- Rd = CONCAT(Rs1.W[0], Rs2.W[0]); // PKBB32
- Rd = CONCAT(Rs1.W[0], Rs2.W[1]); // PKBT32
- Rd = CONCAT(Rs1.W[1], Rs2.W[1]); // PKTT32
+  Rd = CONCAT(Rs1.W[0], Rs2.W[0]); // PKBB32
+  Rd = CONCAT(Rs1.W[0], Rs2.W[1]); // PKBT32
+  Rd = CONCAT(Rs1.W[1], Rs2.W[1]); // PKTT32
  Rd = CONCAT(Rs1.W[1], Rs2.W[0]); // PKTB32
 
 *Exceptions:* None
