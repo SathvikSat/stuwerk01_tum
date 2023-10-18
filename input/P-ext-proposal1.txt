@@ -3633,7 +3633,9 @@ imm6u, and then writes the LSB half of the result to Rd.
    lowpt = Rs3;
    highpt = Rs1;
  }
- src[63:0] = CONCAT(highpt, lowpt);
+ //TODO: coreDSL specific datatype uint64_t src = highpt::lowpt
+ src[63:0] =  CONCAT(highpt, lowpt);
+ 
  Rd = src[31+shamt:shamt];
  
 *Exceptions:* None
@@ -9480,6 +9482,7 @@ For RV32 PACK/PACKU encoding format, please see <<pack_packu>>.
  Rd.W[x] = CONCAT(Rs1.W[x].H[0], Rs2.W[x].H[1]); // PKBT16
  Rd.W[x] = CONCAT(Rs1.W[x].H[1], Rs2.W[x].H[0]); // PKTB16
  Rd.W[x] = CONCAT(Rs1.W[x].H[1], Rs2.W[x].H[1]); // PKTT16
+ //TODO: check for RV32 here, doesn't seem to recognise for RV32
  for RV32: x=0,
  for RV64: x=1..0
 
@@ -10134,6 +10137,7 @@ R__x__(4,1), i.e., value _d_, determines the even/odd pair group of two register
  t_L = CONCAT(Rd(4,1),1'b0); t_H = CONCAT(Rd(4,1),1'b1);
  a_L = CONCAT(Rs1(4,1),1'b0); a_H = CONCAT(Rs1(4,1),1'b1);
  b_L = CONCAT(Rs2(4,1),1'b0); b_H = CONCAT(Rs2(4,1),1'b1);
+ #TODO: address this multiple SEs in single line 
  res65 = (SE65(R[a_H].R[a_L]) - SE65(R[b_H].R[b_L])) s>> 1;
  R[t_H].R[t_L] = res65.D[0];
 

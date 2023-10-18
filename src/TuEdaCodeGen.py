@@ -1,5 +1,23 @@
 from utils.TuEdaCommon import *
 
+
+def replace_sub_arguments(match):
+    #sub_arguments = match.group(1)
+    #sub_arguments = re.sub(r'\((\d+),(\d+)\)', r'(\1:\2)', sub_arguments)
+    #return sub_arguments
+    x, y = match.group(1).split(',')
+    mod_x = x.replace('(', '[')
+    return f'({mod_x}:{y}]'
+
+def replace_sub_comma_arguments(match):
+    
+    return match.group().replace(',', '::') 
+
+#TODO:123
+
+ #   ABS(x) => (x > 0 ? x : -x)
+
+
 class SliceHandler:
     #index is tuple of length 2 as arg for __getitem__((2, 'B')) 
     def __getitem__(self, index):
@@ -61,50 +79,205 @@ class SliceHandler:
         resStr = "[" + str(int(start)) + ":" + str(int(end)) + " ]"
         return resStr
 
+#def TuEdaBehavOnUnrolledSeBehav( mod_currBehavLst_unrolled_rv32, mod_currBehavLst_unrolled_rv64 ):
+    #pass
+
+def TuEdaBehavOnNonUnrolledSeBehav( mod_currBehavLst_unrolled_rv32, mod_currBehavLst_unrolled_rv64, mod_currBehavLst ):
+    
+    TuEdaBehavOnNonUnrolledSeBehavlvl1( mod_currBehavLst_unrolled_rv32 )
+    TuEdaBehavOnNonUnrolledSeBehavlvl1( mod_currBehavLst_unrolled_rv64 )
+    TuEdaBehavOnNonUnrolledSeBehavlvl1( mod_currBehavLst )
+    
+
+def TuEdaBehavOnNonUnrolledSeBehavlvl1( mod_currBehavLst_lvl1 ):
+
+    signedExtpattern1 = r"SE(\d+)?\((.*?)\)"
+    #signedExtXlenPattern1 = 
+    #TODO: make multi-line instructions single line to access in dict as key value, needed ??
+    
+    #The list from concat function handler
+    for currBehav in mod_currBehavLst_lvl1:
+        for key, value in currBehav.items():
+            
+            #Multiple SE() op can be found in a single line of Behav
+            matchSeOp = re.findall( signedExtpattern1, value )
+            #matchSeOp = re.finditer( signedExtpattern1, value )
+            
+            #matchSeXlenOp = re.findall(signedExtXlenPattern1, value )
+            seBehavFndFlg = False
+            
+            if matchSeOp:
+
+                #split() doesn't raise err
+                contents = value.split('=')
+                
+                seBehavFndFlg = True
+                
+                #for multiple SEs in a given line of inst
+                se_indices = []
+
+                #iterate over a given line of inst with 1 or more SE Operations
+                for seOps in matchSeOp: 
+                    
+                    #startIdx = seOps.start()
+                    #endIdx = seOps.end()                    
+                    #se_indices.append( (startIdx, endIdx) )
+
+                    seNum = seOps[0]  # "66"
+                    seContentInParenthesis = seOps[1]  # "Rs1.W[0] s* Rs2.W[0]"
+                    
+                    #TODO: handle multiple SEs in single line
+                    
+                    currBehav[key] = str(contents[0]) + '= ' + 'signed<'+ str(seNum) +'>' + '('+ str(seContentInParenthesis) + ')'
+                    
+                    #if more than 1 SEs in a given line of instruction
+                    if len(matchSeOp) > 1:
+                        for tpl in se_indices:
+                            #TODO: need to verify and/or handle multi-line SE() and replacing it in right loc if needed
+                            pass
+                        
+    print("exiting")                
+        
 
 """
     To further handling of behaviours on unrolled loops only
 
     Parameters:
+    mod_currBehavLst_unrolled (list) to store the function return value 
     lstOfBehaviorDict32 (list)  
     lstOfBehaviorDict64 (list)  
     
 
     Returns:
-    myLst (list): updated myLst
+    mod_currBehavLst_unrolled (list): updated mod_currBehavLst_unrolled
 """
-def TuEdaBehavOnUnrolledLoops( lstOfBehaviorDict32, lstOfBehaviorDict64 ):
+#TODO: same logic for lstOfBehaviorDict64
+#TODO: addition of signed and unsiged related as discussed
+def TuEdaBehavOnUnrolledLoops( mod_currBehavLst_unrolled_rv32, mod_currBehavLst_unrolled_rv64, lstOfBehaviorDict32, lstOfBehaviorDict64 ):
+
+
+    #concat handling for unrolled loops RV32
+    TuEdaBehavOnUnrolledLoopslvl2( mod_currBehavLst_unrolled_rv32, lstOfBehaviorDict32 )
     
-    for currBehav in   lstOfBehaviorDict32:
-        for item in currBehav:
-            #concatPattrn = 
+    #concat handling for unrolled loops RV64
+    TuEdaBehavOnUnrolledLoopslvl2(mod_currBehavLst_unrolled_rv64, lstOfBehaviorDict64 )
+
+
+
+"""
+    To further handling of behaviours on unrolled loops only
+
+    Parameters:
+    mod_currBehavLst_unrolled (list) to store the function return value 
+    lstOfBehaviorDict32 (list)  
+    lstOfBehaviorDict64 (list)  
+    
+
+    Returns:
+    mod_currBehavLst_unrolled (list): updated mod_currBehavLst_unrolled
+"""
+def TuEdaBehavOnUnrolledLoopslvl2( mod_currBehavLst_unrolled_rv32oder64, lstOfBehaviorDict ):
+
+    Concatpattern1 = r'\bCONCAT\s*\('
+    concatPattern = r'\bCONCAT\s*\(\s*(.*?)\s*\)'
+    atlstOneConcat = False
+
+    for currBehavLst in lstOfBehaviorDict:
+        matchConcatFlg = False
+
+        #checking with first member of the unrolled set i, where i= 1....n
+        for dict_ in currBehavLst:
+
+            #For every new member of the unrolled list/set
+            mod_res_concat_dict = {}
             
-            pass
-        pass          
-    pass
+            #to check for concat() in first member out of "unrolled list/set" 
+            FirstIter = True
+            
+            matchConcatFlg = False
+            lstOfKeyToRmv = []
+            clean_k = []
+            clean_v = []
+            concatLstFlg = False
+            
+            if atlstOneConcat or FirstIter:
+                FirstIter = False
+                for key, value in dict_.items():
+                    matchConcat = re.search( Concatpattern1, value ) 
+                    if matchConcat:
+                        atlstOneConcat = True
+                        matchConcatFlg = True
+                        dictItemSplit = value.split(';')
+                        cleanDictItemSplit = [s.strip() for s in dictItemSplit if s != '' and  s != "" and s != ' ']
+                        iter = 0
 
+                        #if more than 1 concat() is available in the given line of code/behaviour
+                        for concats in cleanDictItemSplit:
+                            matches = re.search( concatPattern, concats )
+                            if matches:
+                                iter = iter + 1
+                                arguments = matches.group(1)
+                                
+                                commaCnt = concats.count(',')
+                                if commaCnt > 1:
+                                    res = re.sub(r'\((.*?)\)', replace_sub_arguments, concats)
+                                else: res = concats
+                                res_concat = re.sub(r',',replace_sub_comma_arguments, res )
+                                
+                                keyToRem = "CONCAT"
 
-def replace_sub_arguments(match):
-    #sub_arguments = match.group(1)
-    #sub_arguments = re.sub(r'\((\d+),(\d+)\)', r'(\1:\2)', sub_arguments)
-    #return sub_arguments
-    x, y = match.group(1).split(',')
-    mod_x = x.replace('(', '[')
-    return f'({mod_x}:{y}]'
+                                # Find the starting index of the keyword
+                                start_index = res_concat.find(keyToRem)
 
-def replace_sub_comma_arguments(match):
+                                # Find the ending index of the associated closing parenthesis
+                                end_index = res_concat.find(')', start_index)
+
+                                # Remove the keyword and associated parentheses, len('CONCAT(') == 7
+                                mod_res_concat = res_concat[:start_index] + res_concat[(start_index+7): end_index] + res_concat[end_index + 1:]
+
+                                k, v = mod_res_concat.split('=')
+                                k_mod =  k.replace(" ", "")
+
+                                if  k_mod in clean_k:
+                                    k_mod = str(k_mod) + "_" + str(iter)
+                        
+                                clean_k.append(k_mod)
+                        
+                                clean_v.append(v)
+
+            #Modified behaviour for ith member in the unrolled list 
+            if matchConcatFlg:
+                matchConcatFlg = False
+                mod_res_concat_dict = dict(zip(clean_k, clean_v))
+
+                mod_currBehav = {}
+                for key_, value_ in dict_.items():
+                    modified_value = value_
+                    for k_, v_ in mod_res_concat_dict.items():
+                        if k_ in modified_value:
+                            modified_value = modified_value.replace(value_, v_)
+                            mod_currBehav[k_] = modified_value             
+                        else:
+                            mod_currBehav[key_] = modified_value             
+
+                mod_currBehavLst_unrolled_rv32oder64.append(mod_currBehav)  
+            
+            else: #TODO: handle this properly
+                mod_currBehav = {}
+                for key, value in dict_.items():
+                    mod_currBehav[key] = value
+                mod_currBehavLst_unrolled_rv32oder64.append(mod_currBehav)     
     
-    return match.group().replace(',', '::') 
+    print("exiting, unrolled")              
 
-def TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict ):
+
+
+
+def TuEdaBehavOnNonUnrolledLoops( mod_currBehavLst, lstnonLoopBehaviorDict ):
     
     Concatpattern1 = r'\bCONCAT\s*\('
-    #concatPattern = r'\bCONCAT\s*\(\s*((?:[^(),]|(?R))+)\s*\)'
     concatPattern = r'\bCONCAT\s*\(\s*(.*?)\s*\)'
-    
-    #Store the result of concat() operations for all unrolled loops
-    mod_currBehavLst = []
-    
+
     #iterate behavior
     for currBehav in lstnonLoopBehaviorDict:
         
@@ -124,11 +297,10 @@ def TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict ):
                 matchConcatFlg = True
                 dictItemSplit = value.split(';')
                 cleanDictItemSplit = [s.strip() for s in dictItemSplit if s != '' and  s != "" and s != ' ']
-
-              
                 
                 #iterate multiple CONCATs if any
                 iter = 0
+                #TODO: cascading of concat needs to be addressed
                 for concats in  cleanDictItemSplit:
                     matches = re.search( concatPattern, concats )
                     if matches:
@@ -145,6 +317,7 @@ def TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict ):
                         #Remove concat keyword and associated braces
 
                         #### Partial Ref. ChatGPT Begins #####
+                        #TODO: key need not be removed always
                         keyToRem = "CONCAT"
 
                         # Find the starting index of the keyword
@@ -158,10 +331,12 @@ def TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict ):
 
                         #print(mod_res_concat)  # Output: "t_L = Rd[4:1]::1'b0"
                         #### Partial Ref. ChatGPT Ends #####
+
                         k, v = mod_res_concat.split('=')
                         k_mod =  k.replace(" ", "")                    
                         
                         #To make the key unique
+                        #TODO: key is modified here to make it unique need to verify if its handled properly
                         if  k_mod in clean_k:
                             k_mod = str(k_mod) + "_" + str(iter)
                         
@@ -170,8 +345,9 @@ def TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict ):
                         clean_v.append(v)
 
                         #once concat operation is being perfomed remove the associated key,value from dict
+                        #TODO: this doesn't apply for all
                         lstOfKeyToRmv.append(key)
-        
+            
             if matchConcatFlg:
                 matchConcatFlg = False
                 mod_res_concat_dict = dict(zip(clean_k, clean_v))
@@ -198,12 +374,49 @@ def TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict ):
             #TODO: need to seperate RV32 and RV64 in non-loop behaviours as well
             #TODO: certain concats lines are deleted as expected  but are not used in the behaviour fix this bug 
             mod_currBehavLst.append(mod_currBehav)
+        
+        #If no concat, store the behaviour as it is 
+        else: #TODO: do this else case for unrolled function as well
+            mod_currBehav = {}
+            for key, value in currBehav.items():
+                mod_currBehav[key] = value
+            mod_currBehavLst.append(mod_currBehav) 
 
 # Now mod_currBehav contains the modified values
  
-        print("Dummy")        
+    #y = ABS(x)
+    #  if x > 0: 
+    #      y = x 
+    #  else: 
+    #      y = -x     
+    #absPattern = r'\bABS\s*\('
+    #absPattern1 = r'\bABS\s*\(\s*(.*?)\s*\)'
+    #for currBehavWoConcat in mod_currBehavLst:
+    #    
+    #    #iterate thro behaviour at a time to check for ABS()
+    #    for key, value in currBehavWoConcat.items():
+    #        matchAbs = re.search(absPattern, value )
+    #        if matchAbs:
+    #            
+    #            #if multiple ABS in a line of instruction
+    #            dictItemSplit = value.split(';')
+    #            cleanDictItemSplit = [s.strip() for s in dictItemSplit if s != '' and  s != "" and s != ' ']
+    #            
+    #            #iterate multiple ABSs if any
+    #            iter = 0
+    #            for absolutes in cleanDictItemSplit:
+    #                matches = re.search(absPattern1, value)
+    #                if matches:
+    #                    iter = iter + 1
+    #                    
+    #                    #for match in matches:
+    #                    arguments = matches.group(1)
+    #                    pass
 
-    print("Exiting")  
+
+
+
+    print("Exiting non-unrolled")  
 
 def read_file():
     # Get the current working directory
@@ -253,6 +466,8 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
                 instruction_syntax_list.append("None")
             else:
                 instruction_syntax_list.append(instruction_syntax)
+                #if instruction_syntax == "MINW Rd, Rs1, Rs2":
+                    #pass
             #number of operants
             number_of_operants.append(instruction_syntax.count(','))
             #description
@@ -272,8 +487,6 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
                 TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict64,\
                                             currBehavDict, behaviour, lstnonLoopBehaviorDict )
                 
-                #temp
-                #continue
             #formate
             instruction_format = edaSelInstFrmt(part)
             if (instruction_format == "None"):
@@ -283,16 +496,10 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
                 instruction_format_list.append(instruction_format)
                 instruction_encoding_list_local = []
 
-                #Encoding
+                # Encoding Begins #
                 #for every iter get a new encoding/encoding lst of dicts
                 inst = part
                 TuEdaEncodeRiscToCoreDsl(inst, lstofEncoding )
-                #lstofDict_.append(lstofEncoding)
-                #print("To Check if its done")
-                #print(lstofEncoding[-1])
-                #print("Len is ", len(lstofEncoding))
-            
-                #print("test")
                 # Encoding Ends # 
             '''
             instruction_encoding_list_local = edaSelInstEnc(instruction_format)
@@ -305,13 +512,27 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
         else:
             pass
 
-    #continue further handling of behaviours on unrolled loops only
-    TuEdaBehavOnUnrolledLoops( lstOfBehaviorDict32, lstOfBehaviorDict64 )
+    #Store the result of concat() operations for all unrolled loops
+    mod_currBehavLst_unrolled_rv32 = []
+    mod_currBehavLst_unrolled_rv64 = [] 
 
-    #TODO: need to handle non-unrolled behaviour cases as well
-    TuEdaBehavOnNonUnrolledLoops( lstnonLoopBehaviorDict )
-    
-    #continue encoding after all encoding contents are extracted    
+    #continue further handling of behaviours on unrolled loops only, RV32 and RV64
+    TuEdaBehavOnUnrolledLoops( mod_currBehavLst_unrolled_rv32, mod_currBehavLst_unrolled_rv64, lstOfBehaviorDict32, lstOfBehaviorDict64 )
+
+    #store the result of concat() + 'SE' keywords handling
+    #lstofSeBehavDictUnroll = []
+    #TuEdaBehavOnUnrolledSeBehav( mod_currBehavLst_unrolled_rv32, mod_currBehavLst_unrolled_rv64 )
+
+    #Store the result of concat() operations for all non-unrolled loops and other non-loop
+    mod_currBehavLst = []
+    TuEdaBehavOnNonUnrolledLoops( mod_currBehavLst, lstnonLoopBehaviorDict )
+     
+    TuEdaBehavOnNonUnrolledSeBehav( mod_currBehavLst_unrolled_rv32, mod_currBehavLst_unrolled_rv64, mod_currBehavLst )
+
+    #TODO: continue abs(), ZE(), B[], H[] etc
+    print("done1")
+
+    #continue Encoding after all encoding contents are extracted    
     for myDict in lstofEncoding:
         encoding = ""
         args_disass = ""
@@ -343,6 +564,23 @@ def apply_selection(devided_text_file, inst_encodeLst, inst_argsDisass ):
 
     inst_argsDisass = [s[:-1] if s.endswith(',') else s for s in lstofArgsDisass] 
     
+    json_file_path1 = "encode.json"
+    json_file_path2 = "diassemble.json"
+    json_file_path3 = "mod_currBehavLst_unrolled.json"
+    json_file_path4 = "mod_currBehavLst.json"
+
+# Write the combined data to the JSON file
+    with open(json_file_path1, "w") as json_file:
+        json.dump(inst_encodeLst, json_file, indent=4)
+    with open(json_file_path2, "w") as json_file:
+        json.dump(inst_argsDisass, json_file, indent=4)
+    with open(json_file_path3, "w") as json_file:
+        json.dump(mod_currBehavLst_unrolled_rv32, json_file, indent=4)
+    with open(json_file_path3, "w") as json_file:
+        json.dump(mod_currBehavLst_unrolled_rv64, json_file, indent=4)
+    with open(json_file_path4, "w") as json_file:
+        json.dump(mod_currBehavLst, json_file, indent=4)
+
     print("Done1") 
 def apply_commenting():
     comment_text(instruction_format_list)
@@ -584,9 +822,9 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
     
     # if certain operation exists 
     if match:
+
         #strip white spaces
         res = match.group(1).strip() 
-        print(res)
         content = res.split("\n")
 
         if '' in content:
@@ -594,7 +832,7 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
             end_index = 0
 
             #reset
-            currBehavDict = { }    
+            currBehavDict = {}    
             cleanContent = []
             
             for i in range(start_index, len(content)):
@@ -602,14 +840,14 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
                     end_index = i - 1
                     break
             if end_index > start_index:  
+                
                 # for loop patterns
-                #TODO:remove spaces for pattern
-                #TODO: forPattern1 not needed because of break!
-                forPattern1 = r'\s*for\s*\(\s*i\s*=\s*(\d+)\s*to\s*(\d+)\s*\)'
+                #TODO: Just a note: forPattern1 not needed because of break!
+                #forPattern1 = r'\s*for\s*\(\s*i\s*=\s*(\d+)\s*to\s*(\d+)\s*\)'
 
                 forPattern2 = r'\s*for\s*(RV\d+)\s*[,:]*\s*x\s*=\s*(\d+)\s*\.\.\s*(\d+)\s*[,:]*'
 
-                #clean content to be unrolled
+                #clean content to be unrolled, RV32, RV64
                 cleanContent = content[start_index:end_index]
                 count = 0
                 
@@ -700,11 +938,9 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
 
 
                     '''
-
                         #pass #temp remove it
                     #for loop pattern 2
                     
-                    #TODO: seperate forPattern for RV32 and RV64
                     match2 = re.search(forPattern2, value )                    
                     
                     #to seperate RV32 and RV64
@@ -713,7 +949,6 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
                     #to seperate RV32 and RV64
                     #rv64_exists = forPattern2.group(1) == 'RV64' if forPattern2 else False
 
-                    #TODO: check RV32 not detecting, directly going to RV64
                     if match2:
                         rv = match2.group(1)
                         if rv == 'RV32':
@@ -722,21 +957,22 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
 
                         #if rv32_exists == True
                         unrolled = True
+                        
                         toRmvKey.append(key)
                         rv = match2.group(1)
                         start_value = int(match2.group(2))
                         end_value = int(match2.group(3))
+                        
                         #pattern = r'[\[(]\s*x\s*[\])]' [x] and (x)
                         pattern = r'\[\s*x\s*\]' # just [x]
+                        
                         if start_value > end_value:
                             tmp = start_value
                             start_value = end_value
                             end_value = tmp
 
-
                         if match1Flg == 1:
 
-                            #TODO: temporarily comments below
                             '''
                             #reset match1Flg
                             match1Flg = 0
@@ -808,22 +1044,23 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
                     
                         #Handle non-loop behaviour cases  
                     else:
-                        #TODO: few other RV32 or 64 types are here but without for loop mostly
+                        #if no RV32 or RV64 with forloop pattern2 was detected
                         if (index == len(currBehavDict) - 1):
                             lstnonLoopBehaviorDict.append( currBehavDict )
                             break
                         pass
                     #dont
                     '''and match1and2 != 1'''
-                #TODO: need to seperate RV32 and RV64 into seperate lists
+                
                 if (len(unrollLstofDict32) != 0  or match2 or len(unrollLstofDict64) != 0 ) :  
                     if (len(unrollLstofDict64) != 0):
                         lstOfBehaviorDict64.append(unrollLstofDict64)
                     if (len(unrollLstofDict32) != 0):
                       lstOfBehaviorDict32.append(unrollLstofDict32)
 
-                #handle non-unrolled cases by checking unrolled flag status
-                #TODO: continue from here
+                
+                #################################      DUMMY    #######################################################
+                '''
                 if unrolled == False:
 
                     #eg. parse "t_L = CONCAT(Rd(4,1),1'b0); t_H = CONCAT(Rd(4,1),1'b1);"
@@ -857,11 +1094,12 @@ def  TuEdaBehaviourRiscVToCoreDsl( inst, lstOfBehaviorDict32, lstOfBehaviorDict6
 
                         pass
                     pass
-            
-            else:   
-                pass        
+                '''
+                ###################################        DUMMY         ##############################################
+            else:
+                print("Index handling error in the behaviour extraction!!!!!!") 
+                          
     
-
 """
     To convert RSIC-V instruction encodings into coreDSL encoding format
 
